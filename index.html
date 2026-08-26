@@ -575,6 +575,10 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 const NOSDE_SUPABASE_URL = "https://tkvfxueydzwdzosjxgtk.supabase.co";
 const NOSDE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-AFeO_CXSVkvSz9ayQNNjg_a3lRj2Km";
 let nosdeSupabase = null;
+let nosdeCurrentUser = null;
+let nosdeSyncTimer = null;
+let nosdeSyncInFlight = false;
+let nosdeSyncPending = false;
 if (window.supabase && NOSDE_SUPABASE_URL.startsWith("http") && !NOSDE_SUPABASE_PUBLISHABLE_KEY.startsWith("COLOCA_AQUI")) {
   nosdeSupabase = window.supabase.createClient(NOSDE_SUPABASE_URL, NOSDE_SUPABASE_PUBLISHABLE_KEY);
 }
@@ -595,8 +599,125 @@ function clearAuthMessage(){const el=document.getElementById("authMessage");el.t
 function toggleAuthPassword(){const x=document.getElementById("authPassword");x.type=x.type==="password"?"text":"password";}
 function setAuthLoading(v){document.querySelector(".auth-card").classList.toggle("auth-loading",v)}
 function showAppForUser(user){
+  nosdeCurrentUser=user||null;
   document.getElementById("authGate").style.display="none";
   const box=document.getElementById("authUser");box.style.display="flex";document.getElementById("authUserEmail").textContent=user?.email||"Conta";
+}
+
+function showSyncStatus(message,ok=true){
+  let el=document.getElementById("nosdeSyncStatus");
+  if(!el){
+    el=document.createElement("div");
+    el.id="nosdeSyncStatus";
+    el.style="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:450;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:9px;font-size:10px;box-shadow:0 10px 30px #0005;opacity:0;pointer-events:none;transition:.2s";
+    document.body.appendChild(el);
+  }
+  el.textContent=message;
+  el.style.opacity="1";
+  el.style.borderColor=ok?"var(--green)":"var(--red)";
+  clearTimeout(el.__timer);
+  el.__timer=setTimeout(()=>el.style.opacity="0",1800);
+}
+
+function hasMeaningfulData(obj){
+  return !!obj && typeof obj==="object" && Object.keys(obj).length>0;
+}
+
+async function nosdeGetRemote(){
+  if(!nosdeSupabase || !nosdeCurrentUser) return null;
+  const {data,error}=await nosdeSupabase
+    .from("nosde_user_data")
+    .select("user_id,app_data,finance_data,project_data,settings,updated_at")
+    .eq("user_id",nosdeCurrentUser.id)
+    .maybeSingle();
+  if(error) throw error;
+  return data;
+}
+
+async function nosdePushRemote(){
+  if(!nosdeSupabase || !nosdeCurrentUser) return;
+  if(nosdeSyncInFlight){nosdeSyncPending=true;return;}
+  nosdeSyncInFlight=true;
+  try{
+    const payload={
+      user_id:nosdeCurrentUser.id,
+      app_data:s,
+      finance_data:fin,
+      project_data:projectState,
+      settings:{theme:document.documentElement.dataset.theme||"dark"}
+    };
+    const {error}=await nosdeSupabase.from("nosde_user_data").upsert(payload,{onConflict:"user_id"});
+    if(error) throw error;
+  }catch(error){
+    console.error("NOSDE sync upload error:",error);
+    showSyncStatus("⚠️ Não foi possível sincronizar agora",false);
+  }finally{
+    nosdeSyncInFlight=false;
+    if(nosdeSyncPending){nosdeSyncPending=false;nosdeScheduleSync();}
+  }
+}
+
+function nosdeScheduleSync(){
+  if(!nosdeSupabase || !nosdeCurrentUser) return;
+  clearTimeout(nosdeSyncTimer);
+  nosdeSyncTimer=setTimeout(()=>nosdePushRemote(),350);
+}
+
+async function nosdeLoadAndSync(){
+  if(!nosdeSupabase || !nosdeCurrentUser) return;
+  try{
+    showSyncStatus("☁️ A sincronizar…",true);
+    const remote=await nosdeGetRemote();
+    if(!remote){
+      await nosdePushRemote();
+      showSyncStatus("☁️ Dados sincronizados",true);
+      return;
+    }
+
+    const remoteHasApp=hasMeaningfulData(remote.app_data);
+    const remoteHasFinance=hasMeaningfulData(remote.finance_data);
+    const remoteHasProjects=hasMeaningfulData(remote.project_data);
+
+    // Se a conta ainda não tem dados na nuvem, preservamos os dados locais
+    // existentes e fazemos o primeiro envio. Em dispositivos novos, os dados
+    // locais são apenas os defaults e a nuvem passa a ser a fonte principal.
+    const localHasApp=hasMeaningfulData(JSON.parse(localStorage.getItem(KEY)||"{}"));
+    const localHasFinance=hasMeaningfulData(JSON.parse(localStorage.getItem(FINKEY)||"{}"));
+    const localHasProjects=hasMeaningfulData(JSON.parse(localStorage.getItem(PROJECT_KEY)||"{}"));
+
+    if(!remoteHasApp && !remoteHasFinance && !remoteHasProjects && (localHasApp || localHasFinance || localHasProjects)){
+      await nosdePushRemote();
+      showSyncStatus("☁️ Dados enviados para a nuvem",true);
+      return;
+    }
+
+    if(remoteHasApp){
+      localStorage.setItem(KEY,JSON.stringify(remote.app_data));
+      s=load();
+      pomoRemaining=s.pomo.focus*60;
+    }
+    if(remoteHasFinance){
+      localStorage.setItem(FINKEY,JSON.stringify(remote.finance_data));
+      fin=loadFinance();
+      normalizeFinance();
+    }
+    if(remoteHasProjects){
+      localStorage.setItem(PROJECT_KEY,JSON.stringify(remote.project_data));
+      projectState=projectLoad();
+    }
+    if(remote.settings?.theme){
+      document.documentElement.dataset.theme=remote.settings.theme;
+      localStorage.setItem("evolve_theme",remote.settings.theme);
+      const tb=document.getElementById("themeBtn");
+      if(tb)tb.textContent=remote.settings.theme==="light"?"🌙 Tema escuro":"☀️ Tema claro";
+    }
+    renderAll();
+    renderFinanceGateOnLoad();
+    showSyncStatus("☁️ Dados sincronizados",true);
+  }catch(error){
+    console.error("NOSDE sync load error:",error);
+    showSyncStatus("⚠️ Erro ao carregar dados da nuvem",false);
+  }
 }
 function showAuthGate(){document.getElementById("authGate").style.display="flex";document.getElementById("authUser").style.display="none"}
 async function handleEmailAuth(e){
@@ -624,12 +745,20 @@ async function signInWithGoogle(){
   if(!authReady()){authMessage("Configura primeiro a URL e a Publishable Key do Supabase.");return}
   const {error}=await nosdeSupabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.href}}); if(error)authMessage(error.message);
 }
-async function signOutUser(){if(nosdeSupabase) await nosdeSupabase.auth.signOut(); showAuthGate(); authMode("login");}
+async function signOutUser(){if(nosdeSupabase) await nosdeSupabase.auth.signOut(); nosdeCurrentUser=null; clearTimeout(nosdeSyncTimer); showAuthGate(); authMode("login");}
 async function initNOSDEAuth(){
   if(!authReady()){showAuthGate();authMessage("Para ativar o início de sessão, coloca no código a Supabase URL e a Publishable Key. A chave deve ser a Publishable/anon key, nunca uma service_role key.");return}
   const {data:{session}}=await nosdeSupabase.auth.getSession();
-  if(session?.user) showAppForUser(session.user); else showAuthGate();
-  nosdeSupabase.auth.onAuthStateChange((_event,session)=>{if(session?.user)showAppForUser(session.user);else showAuthGate()});
+  if(session?.user){showAppForUser(session.user);setTimeout(nosdeLoadAndSync,0)} else {showAuthGate()}
+  nosdeSupabase.auth.onAuthStateChange((_event,session)=>{
+    if(session?.user){
+      showAppForUser(session.user);
+      setTimeout(nosdeLoadAndSync,0);
+    }else{
+      nosdeCurrentUser=null;
+      showAuthGate();
+    }
+  });
 }
 
 const KEY="evolve_os_rebuilt_v1";
@@ -664,7 +793,7 @@ function load(){try{
 let s=load(), viewDate=new Date(), selected=today(), noteFolder="all", currentNoteId=null, currentNoteType="text", pomoMode="focus", pomoRemaining=s.pomo.focus*60, pomoRunning=false, pomoTimer=null, canvasCtx=null, canvasDown=false, canvasTool="pen", canvasColor="#111", canvasSize=3;
 viewDate.setDate(1);
 
-function save(){localStorage.setItem(KEY,JSON.stringify(s));renderAll()}
+function save(){localStorage.setItem(KEY,JSON.stringify(s));renderAll();nosdeScheduleSync()}
 function toast(t){const x=document.createElement("div");x.textContent=t;x.style="position:fixed;right:18px;bottom:18px;z-index:300;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:11px 14px;border-radius:9px;font-size:11px;box-shadow:0 10px 30px #0005";document.body.appendChild(x);setTimeout(()=>x.remove(),2400)}
 function view(id){
   const locked=typeof financeAppLocked==='function'&&financeAppLocked(id);
@@ -680,7 +809,7 @@ document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>view(b.dataset
 function toggleMenu(){const sb=document.getElementById("sidebar"),btn=document.getElementById("mobileMenu");const open=sb.classList.toggle("open");if(btn)btn.setAttribute("aria-expanded",String(open))}
 function modal(title,body){document.getElementById("modalTitle").textContent=title;document.getElementById("modalBody").innerHTML=body;document.getElementById("modal").classList.add("open")}
 function closeModal(){const m=document.getElementById("modal");if(m){m.classList.remove("open");m.classList.remove("finance-locked-modal")}}
-function toggleTheme(){const t=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=t;localStorage.setItem("evolve_theme",t);document.getElementById("themeBtn").textContent=t==="light"?"🌙 Tema escuro":"☀️ Tema claro";if(currentNoteType==="canvas"&&currentNoteId)renderCanvasNote();toast(t==="light"?"Tema claro":"Tema escuro")}
+function toggleTheme(){const t=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=t;localStorage.setItem("evolve_theme",t);nosdeScheduleSync();document.getElementById("themeBtn").textContent=t==="light"?"🌙 Tema escuro":"☀️ Tema claro";if(currentNoteType==="canvas"&&currentNoteId)renderCanvasNote();toast(t==="light"?"Tema claro":"Tema escuro")}
 
 function openActionModal(date=selected){
  modal("Nova ação",`<div class="form"><label>Ação</label><input id="fAction" placeholder="Ex.: estudar modelação 3D"><div class="row"><div><label>Data</label><input id="fActionDate" type="date" value="${date||today()}"></div><div><label>Hora</label><input id="fActionTime" type="time" value="08:00"></div></div><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="createAction()">Criar ação</button></div></div>`)
@@ -857,7 +986,7 @@ function completeMissionRewards(ds=today(),silent=false){
   return earned;
 }
 function renderDailyMissions(){
-  const ds=today(),ms=ensureDailyMissions(ds);completeMissionRewards(ds,true);localStorage.setItem(KEY,JSON.stringify(s));
+  const ds=today(),ms=ensureDailyMissions(ds);completeMissionRewards(ds,true);localStorage.setItem(KEY,JSON.stringify(s));nosdeScheduleSync();
   let totalXp=0,done=0;
   document.getElementById("dailyMissions").innerHTML=ms.map(m=>{const p=missionProgress(m,ds),ok=p>=m.target;if(ok)done++;totalXp+=ok?m.reward:0;const pct=Math.min(100,(p/m.target)*100);const label=m.type==="focus"||m.type==="project-time"?`${p} / ${m.target} min`:m.type==="project-checklist"?`${p} / ${m.target} itens`:`${p} / ${m.target}`;const action=m.type==="action"?`<button class="btn sm" onclick="view('actions')">Abrir ações</button>`:m.type==="focus"?`<button class="btn sm" onclick="view('pomodoro')">Começar foco</button>`:m.type.startsWith("project")?`<button class="btn sm" onclick="view('board')">Abrir projetos</button>`:m.type==="goal"?`<button class="btn sm" onclick="view('goals')">Ver objetivos</button>`:m.type.startsWith("finance")||m.type==="emergency"?`<button class="btn sm" onclick="view('finance')">Abrir finanças</button>`:"";return `<div class="mission ${ok?"done":""}"><div class="mission-icon ${m.type}">${m.icon}</div><div class="mission-info"><strong>${esc(m.title)}</strong><small>${esc(m.sub)}</small><div class="mission-progress"><i style="width:${pct}%"></i></div><div class="mission-actions"><small>${label}</small>${!ok?action:"<small>✓ Concluída</small>"}</div></div><div class="mission-reward" title="Recompensa">${ok?"✓":"🎁"}</div></div>`}).join("");
   document.getElementById("missionsDone").textContent=done+"/"+ms.length;document.getElementById("dailyXp").textContent=totalXp;
@@ -870,7 +999,7 @@ function renderGamificationOverview(){
   s.gamification.lastLevel=info.level;s.gamification.lastLeague=league.name;
 }
 function renderMonthlyMedals(){
-  const mk=monthKey(),st=medalState(mk),days=st.days;localStorage.setItem(KEY,JSON.stringify(s));document.getElementById("medalsMonth").textContent=monthName(today());
+  const mk=monthKey(),st=medalState(mk),days=st.days;localStorage.setItem(KEY,JSON.stringify(s));nosdeScheduleSync();document.getElementById("medalsMonth").textContent=monthName(today());
   document.getElementById("monthlyMedals").innerHTML=Object.values(st.medals).map(m=>{const pct=Math.min(100,(days/m.target)*100);return `<div class="medal-card ${m.unlocked?"unlocked":""}"><div class="medal-top"><div class="medal-icon">${m.icon}</div><div><div class="medal-name">${m.name}</div><div class="medal-criterion">${m.target} dias completos</div></div></div><div class="medal-progress"><i style="width:${pct}%"></i></div><div class="medal-foot"><span>${Math.min(days,m.target)} / ${m.target} dias</span><strong>${m.unlocked?"✓ Desbloqueada":"Bloqueada"}</strong></div></div>`}).join("");
   st.newly.forEach(m=>notifyGamification("🏅 Nova medalha desbloqueada",m.name));
 }
@@ -998,7 +1127,7 @@ function loadCanvasImage(src){if(!src)return;const img=new Image();img.onload=()
 function renderCanvasNote(){if(currentNoteId){const n=notes().find(x=>x.id===currentNoteId);if(n?.image){setupCanvas();loadCanvasImage(n.image)}}}
 
 async function requestNotifications(){if(!("Notification" in window)){alert("Este navegador não suporta notificações.");return}const p=await Notification.requestPermission();toast(p==="granted"?"Notificações ativadas.":"Permissão não concedida.")}
-function checkAlarms(){const now=new Date();const key=now.toISOString().slice(0,10);s.reminders.forEach(r=>{const target=new Date(r.date+"T"+(r.time||"09:00")+":00");const diff=Math.ceil((target-now)/86400000);if(r.alerts.includes(diff)){const k=r.id+"_"+diff;if(s.notified[k])return;s.notified[k]=Date.now();const msg=diff===0?"É hoje: "+r.title:diff+" dias para: "+r.title;if("Notification" in window&&Notification.permission==="granted")new Notification("NOSDE EDVANCE", {body:msg});toast("🔔 "+msg)} });localStorage.setItem(KEY,JSON.stringify(s))}
+function checkAlarms(){const now=new Date();const key=now.toISOString().slice(0,10);s.reminders.forEach(r=>{const target=new Date(r.date+"T"+(r.time||"09:00")+":00");const diff=Math.ceil((target-now)/86400000);if(r.alerts.includes(diff)){const k=r.id+"_"+diff;if(s.notified[k])return;s.notified[k]=Date.now();const msg=diff===0?"É hoje: "+r.title:diff+" dias para: "+r.title;if("Notification" in window&&Notification.permission==="granted")new Notification("NOSDE EDVANCE", {body:msg});toast("🔔 "+msg)} });localStorage.setItem(KEY,JSON.stringify(s));nosdeScheduleSync()}
 function switchProfileTab(tab){
   document.querySelectorAll(".profile-tab").forEach(b=>b.classList.toggle("active",b.dataset.profileTab===tab));
   document.getElementById("profilePersonal").classList.toggle("active",tab==="personal");
@@ -1292,7 +1421,7 @@ function financeTotals(month=currentMonthFinance()){
   const net=cash+emergencyTotal+goalTotal+invest;
   return {income,expense,emergencyAdded:eAdd,emergencyDebited:eDebit,emergencyTotal,goalTotal,savingsAdded:gAdd,savingsDebited:gDebit,investmentAdded:iAdd,investmentDebited:iDebit,reserved,availableBeforeExpenses,availableForSaving,cash,invest,saving,net,recordedIncome:income,incomeBase:0};
 }
-function saveFinance(){localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderDailyMissions?.();renderStreak?.()}
+function saveFinance(){localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderDailyMissions?.();renderStreak?.();nosdeScheduleSync()}
 function monthlyRevenueRegistered(month=currentMonthFinance()){return !!(fin.monthlyIncome[month]?.registered)}
 function emergencyRequired(month=currentMonthFinance()){return monthlyRevenueRegistered(month)&&monthlyIncomeValue(month)>=50000}
 function emergencyMin(month=currentMonthFinance()){return emergencyRequired(month)?monthlyIncomeValue(month)*0.05:0}
@@ -1332,7 +1461,7 @@ function saveMonthlyIncome(){
   if(oldEmergencyId){fin.emergencyFund.contributions=fin.emergencyFund.contributions.filter(x=>x.id!==oldEmergencyId)}
   fin.monthlyIncome[month]={...FIN_MONTHLY_DEFAULT,...old,income:amount,registered:true,emergencyPercent:0,emergencyContributionId:null,registeredAt:new Date().toISOString()};
   // A receita mensal é uma declaração, não uma segunda transação em fin.moves.
-  closeModal();localStorage.setItem(FINKEY,JSON.stringify(fin));
+  closeModal();localStorage.setItem(FINKEY,JSON.stringify(fin));nosdeScheduleSync();
   if(amount>=50000){financeEmergencyModal(true)}else{renderFinance();renderFinanceGate();toast("Receita mensal registada.")}
 }
 function financeEmergencyModal(force=false){
@@ -1348,7 +1477,7 @@ function saveEmergencyPlan(){
   // Se o plano já foi alterado, substitui apenas a contribuição automática deste plano, preservando movimentos manuais antigos.
   if(old.emergencyContributionId){fin.emergencyFund.contributions=fin.emergencyFund.contributions.filter(x=>x.id!==old.emergencyContributionId)}
   const id=uid();fin.emergencyFund.contributions.push({id,kind:"add",amount,date:today(),source:`Regra mensal ${pct}%`});fin.monthlyIncome[month]={...old,income,registered:true,emergencyPercent:pct,emergencyContributionId:id};
-  closeModal();localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderFinanceGate();toast(`${money(amount)} reservados no Fundo de Emergência.`)
+  closeModal();localStorage.setItem(FINKEY,JSON.stringify(fin));nosdeScheduleSync();renderFinance();renderFinanceGate();toast(`${money(amount)} reservados no Fundo de Emergência.`)
 }
 function financeMovement(fromGate=false){
   const reason=financeGateReason();if(reason==="income"||reason==="emergency"){renderFinanceGate();return}
@@ -1401,7 +1530,7 @@ function renderFinanceBudget(t){
   el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Disponível total</small><b>${money(available)}</b></div><div class="finance-budget-card"><small>Planejado</small><b>${money(total)}</b></div><div class="finance-budget-card"><small>Não orçamentado</small><b>${money(Math.max(0,available-total))}</b></div></div>${rows||'<div class="finance-empty">Nenhuma categoria orçamentada ainda.</div>'}<div class="budget-compare"><div class="budget-compare-head"><div><div class="budget-compare-title">📊 Orçamento × Despesas</div><div class="budget-compare-sub">Comparação real de ${currentMonthFinance()}</div></div><div class="budget-compare-total">${money2(totalSpent)} / ${money2(total)}<br><span style="color:${totalSpent>total?'var(--red)':'var(--muted)'}">${totalSpent>total?'Orçamento excedido':'Despesas do mês'}</span></div></div><div class="budget-compare-row"><div class="budget-compare-label"><span>Orçamento total</span><b>${money2(total)}</b></div><div class="budget-compare-track"><i style="width:${total/overallMax*100}%"></i></div></div><div class="budget-compare-row"><div class="budget-compare-label"><span>Despesas totais</span><b>${money2(totalSpent)}</b></div><div class="budget-compare-track expense ${totalSpent>total?'exceed':''}"><i style="width:${totalSpent/overallMax*100}%"></i></div></div><div style="font-size:10px;font-weight:900;margin-top:14px">Comparação por categoria</div>${categoryRows||'<div class="finance-empty" style="padding:16px 0">Nenhuma categoria com orçamento ou despesas neste mês.</div>'}</div>`
 }
 
-function markFinanceNoRecord(){const d=today();fin.dailyRecords[d]={status:"no-record",updatedAt:new Date().toISOString()};localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderFinanceGate();toast("Hoje marcado como Sem registro.")}
+function markFinanceNoRecord(){const d=today();fin.dailyRecords[d]={status:"no-record",updatedAt:new Date().toISOString()};localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderFinanceGate();nosdeScheduleSync();toast("Hoje marcado como Sem registro.")}
 function setFinanceSort(mode){financeSort=mode;renderFinanceReports()}
 function renderFinanceReports(){const container=document.getElementById("financeCategoryReports"),sortAmount=document.getElementById("sortAmountBtn"),sortDate=document.getElementById("sortDateBtn");if(sortAmount)sortAmount.classList.toggle("active",financeSort==='amount');if(sortDate)sortDate.classList.toggle("active",financeSort==='date');if(!container)return;let cats=FIN_CATEGORIES.map(c=>({c,total:categoryExpenses(c),items:monthMovesFinance().filter(x=>x.kind==='expense'&&x.category===c)})).filter(x=>x.total>0);cats.sort(financeSort==='date'?(a,b)=>String(b.items.at(-1)?.date||'').localeCompare(String(a.items.at(-1)?.date||'')):(a,b)=>b.total-a.total);container.innerHTML=cats.length?cats.map(x=>{const avg=x.items.length?x.total/x.items.length:0;const items=[...x.items].sort((a,b)=>financeSort==='date'?String(b.date).localeCompare(String(a.date)):Number(b.amount)-Number(a.amount));return `<div class="finance-category"><div class="finance-category-head"><b>${esc(x.c)}</b><b>${money2(x.total)}</b></div><div style="color:var(--muted);font-size:10px;margin-top:4px">Total: ${money2(x.total)} · Average: ${money2(avg)}</div><div style="margin-top:8px">${items.map(i=>`<div class="finance-item"><span>${esc(i.name)} <small style="color:var(--muted)">· ${fullDateFinance(i.date)}</small></span><b>${money2(i.amount)}</b></div>`).join('')}</div></div>`}).join(''):'<div class="finance-empty">Ainda não existem despesas neste mês.</div>'}
 function renderFinanceCharts(){const el=document.getElementById("financeDailyChart");if(!el)return;const byDay={};monthMovesFinance().filter(x=>x.kind==='expense').forEach(x=>byDay[x.date]=(byDay[x.date]||0)+Number(x.amount||0));const days=Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0])),max=Math.max(1,...days.map(x=>x[1]));el.innerHTML=days.length?days.map(([d,v])=>`<div class="daily-bar"><span>${d.slice(8,10)}/${d.slice(5,7)}</span><div class="track"><i style="width:${v/max*100}%"></i></div><b>${money2(v)}</b></div>`).join(''):'<div class="finance-empty">Regista despesas para ver a evolução diária.</div>'}
@@ -1435,6 +1564,7 @@ function markFinanceCheckpointReminder(){
   const markSent=(channel)=>{
     rec.financeNotifications[checkpoint]={sentAt:new Date().toISOString(),channel};
     localStorage.setItem(FINKEY,JSON.stringify(fin));
+    nosdeScheduleSync();
     renderFinanceGate();
   };
   if("Notification" in window){
@@ -1443,10 +1573,11 @@ function markFinanceCheckpointReminder(){
     }else if(Notification.permission==="default"&&!rec.financeNotifications.permissionRequested){
       rec.financeNotifications.permissionRequested=true;
       localStorage.setItem(FINKEY,JSON.stringify(fin));
+      nosdeScheduleSync();
       Notification.requestPermission().then(permission=>{
         const current=fin.dailyRecords[d];
         if(permission==="granted"&&dailyFinanceStatus(d)==="pending"&&!current?.financeNotifications?.[checkpoint]){
-          try{new Notification("NOSDE EDVANCE • Finanças",{body});current.financeNotifications=current.financeNotifications||{};current.financeNotifications[checkpoint]={sentAt:new Date().toISOString(),channel:"browser"};localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinanceGate();}catch(e){}
+          try{new Notification("NOSDE EDVANCE • Finanças",{body});current.financeNotifications=current.financeNotifications||{};current.financeNotifications[checkpoint]={sentAt:new Date().toISOString(),channel:"browser"};localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinanceGate();nosdeScheduleSync();}catch(e){}
         }
       }).catch(()=>{});
       return;
@@ -1464,7 +1595,7 @@ const PROJECT_EMPTY={projects:[]};
 let projectState=projectLoad(), projectDetailIndex=null, projectDetailTab='details';
 
 function projectLoad(){try{return JSON.parse(localStorage.getItem(PROJECT_KEY))||structuredClone(PROJECT_EMPTY)}catch(e){return structuredClone(PROJECT_EMPTY)}}
-function projectSave(){localStorage.setItem(PROJECT_KEY,JSON.stringify(projectState));renderAll()}
+function projectSave(){localStorage.setItem(PROJECT_KEY,JSON.stringify(projectState));renderAll();nosdeScheduleSync()}
 function projectEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 function projectFmtMin(m){m=Math.max(0,Number(m)||0);let h=Math.floor(m/60),mi=Math.floor(m%60),s=Math.floor((m*60)%60);return `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
 function projectFmtHours(m){return (Number(m||0)/60).toFixed(1)+'h'}
