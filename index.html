@@ -517,7 +517,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 <section id="finance" class="page finance-only">
   <div class="top">
     <div><h1>Finanças</h1><p>Receita, reservas, orçamento, despesas e património numa única cadeia financeira.</p></div>
-    <div class="actions"><button class="btn" onclick="financeIncomeModal()">＋ Receita mensal</button><button class="btn primary" onclick="financeMovement()">＋ Despesa</button></div>
+    <div class="actions"><button class="btn" onclick="financeIncomeModal()">＋ Receita mensal</button><button class="btn" onclick="financeExtraRevenueModal()">＋ Outra receita</button><button class="btn primary" onclick="financeMovement()">＋ Despesa</button></div>
   </div>
 
   <div class="kpis">
@@ -1478,10 +1478,9 @@ function monthKeyFromDate(d){return String(d||"").slice(0,7)}
 function isCurrentMonthFinance(date){return monthKeyFromDate(date)===currentMonthFinance()}
 function monthMovesFinance(month=currentMonthFinance()){return fin.moves.filter(x=>monthKeyFromDate(x.date)===month)}
 function monthIncomeRecord(month=currentMonthFinance()){return fin.monthlyIncome[month]||null}
-function monthlyIncomeValue(month=currentMonthFinance()){
-  const rec=monthIncomeRecord(month);if(rec&&rec.registered)return Number(rec.income)||0;
-  return monthMovesFinance(month).filter(x=>x.kind==="income").reduce((a,x)=>a+Number(x.amount||0),0);
-}
+function baseMonthlyIncomeValue(month=currentMonthFinance()){const rec=monthIncomeRecord(month);return rec&&rec.registered?Number(rec.income)||0:0}
+function extraIncomeForMonth(month=currentMonthFinance()){return monthMovesFinance(month).filter(x=>x.kind==="income").reduce((a,x)=>a+Number(x.amount||0),0)}
+function monthlyIncomeValue(month=currentMonthFinance()){return baseMonthlyIncomeValue(month)+extraIncomeForMonth(month)}
 function budgetForMonth(month=currentMonthFinance()){return fin.budgets.find(b=>b.month===month)||null}
 function budgetTotal(month=currentMonthFinance()){const b=budgetForMonth(month);return b?FIN_CATEGORIES.reduce((a,c)=>a+Number(b.categories?.[c]||0),0):0}
 function categoryBudget(category,month=currentMonthFinance()){return Number(budgetForMonth(month)?.categories?.[category]||0)}
@@ -1496,7 +1495,8 @@ function investmentDebits(month=currentMonthFinance()){return fin.investmentMove
 function financeTotals(month=currentMonthFinance()){
   const income=monthlyIncomeValue(month),expense=totalExpenses(month),eAdd=emergencyAdds(month),eDebit=emergencyDebits(month),gAdd=goalAdds(month),gDebit=goalDebits(month),iAdd=investmentAdds(month),iDebit=investmentDebits(month);
   const reserved=Math.max(0,eAdd-eDebit+gAdd-gDebit+iAdd-iDebit);
-  const availableBeforeExpenses=Math.max(0,income-eAdd-gAdd-iAdd+eDebit+gDebit+iDebit);
+  const openingCash=Math.max(0,Number(fin.profile.cash)||0);
+  const availableBeforeExpenses=Math.max(0,openingCash+income-eAdd-gAdd-iAdd+eDebit+gDebit+iDebit);
   const cash=Math.max(0,availableBeforeExpenses-expense);
   const availableForSaving=Math.max(0,availableBeforeExpenses-expense);
   const emergencyTotal=fin.emergencyFund.contributions.reduce((a,x)=>a+(x.kind==="debit"?-1:1)*Number(x.amount||0),0);
@@ -1508,8 +1508,8 @@ function financeTotals(month=currentMonthFinance()){
 }
 function saveFinance(){localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderDailyMissions?.();renderStreak?.();nosdeScheduleSync()}
 function monthlyRevenueRegistered(month=currentMonthFinance()){return !!(fin.monthlyIncome[month]?.registered)}
-function emergencyRequired(month=currentMonthFinance()){return monthlyRevenueRegistered(month)&&monthlyIncomeValue(month)>=50000}
-function emergencyMin(month=currentMonthFinance()){return emergencyRequired(month)?monthlyIncomeValue(month)*0.05:0}
+function emergencyRequired(month=currentMonthFinance()){return monthlyRevenueRegistered(month)&&baseMonthlyIncomeValue(month)>=50000}
+function emergencyMin(month=currentMonthFinance()){return emergencyRequired(month)?baseMonthlyIncomeValue(month)*0.05:0}
 function emergencyPlanComplete(month=currentMonthFinance()){if(!emergencyRequired(month))return true;const r=fin.monthlyIncome[month];return !!r?.emergencyContributionId && emergencyAdds(month)>=emergencyMin(month)-0.001}
 function dailyFinanceStatus(date=today()){
   const rec=fin.dailyRecords[date];
@@ -1549,6 +1549,15 @@ function saveMonthlyIncome(){
   closeModal();localStorage.setItem(FINKEY,JSON.stringify(fin));nosdeScheduleSync();
   if(amount>=50000){financeEmergencyModal(true)}else{renderFinance();renderFinanceGate();toast("Receita mensal registada.")}
 }
+function financeExtraRevenueModal(){
+  modal("Adicionar outra receita",`<div class="form"><label>Valor (Kz)</label><input id="extraRevenueAmount" type="number" min="0.01" step="0.01" placeholder="0"><label>Descrição</label><input id="extraRevenueName" placeholder="Ex.: Freelance, comissão, venda..." maxlength="120"><label>Origem</label><input id="extraRevenueSource" placeholder="Ex.: Trabalho extra, venda, presente..." maxlength="120"><label>Data</label><input id="extraRevenueDate" type="date" value="${today()}"><small style="color:var(--muted)">Esta receita é adicional à receita mensal e aumenta o dinheiro disponível. Não altera a contribuição mínima mensal do Fundo de Emergência.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveExtraRevenue()">Adicionar receita</button></div></div>`);
+}
+function saveExtraRevenue(){
+  const amount=Number(document.getElementById("extraRevenueAmount")?.value),name=document.getElementById("extraRevenueName")?.value.trim(),source=document.getElementById("extraRevenueSource")?.value.trim()||"Outra receita",date=document.getElementById("extraRevenueDate")?.value;
+  if(!isFinite(amount)||amount<=0||!name||!date){alert("Preenche um valor, uma descrição e uma data válidos.");return}
+  fin.moves.push({id:uid(),kind:"income",amount,name,source,date});
+  closeModal();saveFinance();toast(money(amount)+" de outra receita adicionados.");
+}
 function financeEmergencyModal(force=false){
   const income=monthlyIncomeValue(),min=income*0.05,max=income,old=fin.monthlyIncome[currentMonthFinance()]?.emergencyPercent||0;
   const presets=[5,10,20,30,50,75,100];
@@ -1585,7 +1594,7 @@ let patrimonyVisible=false,financeSort="amount";
 function financeHiddenMoney(){return "Kz ***,00"}
 function financeHiddenMoney2(){return "***"}
 function togglePatrimonyVisibility(){patrimonyVisible=!patrimonyVisible;renderFinance()}
-function renderFinanceMonthControl(t){const el=document.getElementById("financeMonthControl");if(!el)return;const rec=monthIncomeRecord(),budget=budgetForMonth();el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita</small><b>${money(t.income)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${money(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Disponível</small><b>${money(t.availableBeforeExpenses)}</b></div></div><div class="checkpoint-box"><b>${rec?.registered?"Receita mensal registada":"Receita mensal pendente"}</b><div style="color:var(--muted);font-size:10px;margin-top:4px">${budget?`Orçamento criado: ${money(budgetTotal())}`:"Crie o orçamento mensal para começar a registrar despesas."}</div></div>`}
+function renderFinanceMonthControl(t){const el=document.getElementById("financeMonthControl");if(!el)return;const extra=extraIncomeForMonth(),budget=budgetForMonth();const extras=monthMovesFinance().filter(x=>x.kind==="income").sort((a,b)=>String(b.date).localeCompare(String(a.date)));el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita mensal</small><b>${money(baseMonthlyIncomeValue())}</b></div><div class="finance-budget-card"><small>Outras receitas</small><b>${money(extra)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${money(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Disponível</small><b>${money(t.availableBeforeExpenses)}</b></div></div>${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${money2(x.amount)}</b></div>`).join("")}</div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`}
 function renderEmergencyFund(t){
   const el=document.getElementById("emergencyFundSection");if(!el)return;
   const ef=fin.emergencyFund,total=Number(t.emergencyTotal)||0,target=Number(ef.target)||0,pct=target?Math.min(100,total/target*100):0,month=Number(t.emergencyAdded)||0,history=[...ef.contributions].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,20);
@@ -1593,8 +1602,8 @@ function renderEmergencyFund(t){
   const show2=v=>patrimonyVisible?money2(v):financeHiddenMoney2();
   el.innerHTML=`<div class="finance-detail-grid"><div class="finance-detail"><small>Saldo atual</small><b class="positive">${show(total)}</b></div><div class="finance-detail"><small>Meta</small><b>${target?show(target):"Não definida"}</b></div><div class="finance-detail"><small>Meta atingida</small><b>${target?pct.toFixed(1)+"%":"—"}</b></div><div class="finance-detail"><small>Acumulado neste mês</small><b class="positive">${show(month)}</b></div></div>${target?`<div class="emergency-progress"><i style="width:${pct}%"></i></div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="addEmergencyMoney()">＋ Adicionar dinheiro</button><button class="btn sm danger" onclick="debitEmergencyMoney()">− Debitar</button></div><div class="panel-head" style="margin-top:15px"><h2 style="font-size:14px;margin:0">Histórico do Fundo</h2></div><div class="emergency-history">${history.length?history.map(x=>{const debit=x.kind==="debit";return `<div class="finance-item"><span>${fullDateFinance(x.date)} <small style="color:var(--muted)">· ${esc(x.source|| (debit?"Débito":"Contribuição"))}</small></span><b class="${debit?'negative':'positive'}">${debit?'−':'＋'} ${show2(x.amount)}</b></div>`}).join(""):"<div class='finance-empty'>Ainda não existem movimentos no fundo.</div>"}</div>`;
 }
-function addEmergencyMoney(){const available=financeTotals().availableForSaving;modal("Adicionar dinheiro ao Fundo de Emergência",`<div class="form"><label>Valor (Kz)</label><input id="emergencyAddAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Disponível para reservar: ${money(available)}.</small><label>Origem</label><input id="emergencyAddSource" placeholder="Poupança adicional"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmAddEmergencyMoney()">Adicionar</button></div></div>`)}
-function confirmAddEmergencyMoney(){const amount=Number(document.getElementById("emergencyAddAmount")?.value),source=document.getElementById("emergencyAddSource")?.value.trim()||"Adição manual",available=financeTotals().availableForSaving;if(!isFinite(amount)||amount<=0||amount>available){alert("Indica um valor válido dentro do dinheiro disponível.");return}fin.emergencyFund.contributions.push({id:uid(),kind:"add",amount,date:today(),source});closeModal();saveFinance();toast(money(amount)+" adicionados ao Fundo de Emergência.")}
+function addEmergencyMoney(){const t=financeTotals(),available=t.availableForSaving;modal("Adicionar dinheiro ao Fundo de Emergência",`<div class="form"><label>Valor (Kz)</label><input id="emergencyAddAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Disponível real para reservar: ${money(available)}.</small><label>Origem</label><input id="emergencyAddSource" placeholder="Poupança adicional"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmAddEmergencyMoney()">Adicionar</button></div></div>`)}
+function confirmAddEmergencyMoney(){const amount=Number(document.getElementById("emergencyAddAmount")?.value),source=document.getElementById("emergencyAddSource")?.value.trim()||"Adição manual",available=financeTotals().availableForSaving;if(!Number.isFinite(amount)||amount<=0){alert("Indica um valor maior que zero.");return}if(amount>available+0.001){alert(`O valor excede o disponível real (${money(available)}). Regista primeiro a outra receita ou atualiza o saldo disponível no perfil financeiro.`);return}fin.emergencyFund.contributions.push({id:uid(),kind:"add",amount,date:today(),source});closeModal();saveFinance();toast(money(amount)+" adicionados ao Fundo de Emergência.")}
 function debitEmergencyMoney(){const current=Math.max(0,Number(financeTotals().emergencyTotal)||0);modal("Debitar do Fundo de Emergência",`<div class="form"><label>Valor (Kz)</label><input id="emergencyDebitAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Saldo do fundo: ${money(current)}.</small><label>Motivo</label><input id="emergencyDebitSource" placeholder="Emergência"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmDebitEmergencyMoney()">Debitar</button></div></div>`)}
 function confirmDebitEmergencyMoney(){const amount=Number(document.getElementById("emergencyDebitAmount")?.value),source=document.getElementById("emergencyDebitSource")?.value.trim()||"Débito por emergência",current=Math.max(0,Number(financeTotals().emergencyTotal)||0);if(!isFinite(amount)||amount<=0||amount>current){alert("O débito não pode exceder o saldo do fundo.");return}fin.emergencyFund.contributions.push({id:uid(),kind:"debit",amount,date:today(),source});closeModal();saveFinance();toast(money(amount)+" debitados do Fundo de Emergência.")}
 function emergencyTargetModal(){const current=Number(fin.emergencyFund.target)||0;modal("Meta do Fundo de Emergência",`<div class="form"><label>Meta (Kz)</label><input id="emergencyTarget" type="number" min="0" step="0.01" value="${current}"><small style="color:var(--muted)">A meta é apenas a referência do fundo e não cria dinheiro.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveEmergencyTarget()">Guardar meta</button></div></div>`)}
