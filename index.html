@@ -517,7 +517,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 <section id="finance" class="page finance-only">
   <div class="top">
     <div><h1>Finanças</h1><p>Receita, reservas, orçamento, despesas e património numa única cadeia financeira.</p></div>
-    <div class="actions"><button class="btn" onclick="financeIncomeModal()">＋ Receita mensal</button><button class="btn" onclick="financeExtraRevenueModal()">＋ Outra receita</button><button class="btn primary" onclick="financeMovement()">＋ Despesa</button></div>
+    <div class="actions"><button class="btn" onclick="financeIncomeModal()">＋ Receita mensal</button><button class="btn" onclick="financeExtraRevenueModal()">＋ Outra receita</button><button class="btn primary" onclick="financeMovement()">＋ Despesa</button><button class="btn danger" onclick="deleteAllFinancialData()">🗑 Apagar dados financeiros</button></div>
   </div>
 
   <div class="kpis">
@@ -1500,15 +1500,17 @@ function financeTotals(month=currentMonthFinance()){
   // é abatida primeiro à receita mensal e não consome automaticamente receitas extra.
   const baseIncomeAvailable=Math.max(0,baseMonthlyIncomeValue(month)-eAdd+eDebit);
   const extraIncomeAvailable=Math.max(0,extraIncomeForMonth(month));
-  const availableBeforeExpenses=Math.max(0,openingCash+baseIncomeAvailable+extraIncomeAvailable-gAdd-iAdd+gDebit+iDebit);
-  const cash=Math.max(0,availableBeforeExpenses-expense);
-  const availableForSaving=Math.max(0,availableBeforeExpenses-expense);
+  const budgetReserved=budgetTotal(month);
+  const availableBeforeExpenses=Math.max(0,openingCash+baseIncomeAvailable+extraIncomeAvailable-gAdd-iAdd+gDebit+iDebit-budgetReserved);
+  // O orçamento é uma reserva: sai do dinheiro livre, mas não é descontado uma segunda vez quando uma despesa acontece.
+  const availableForSaving=Math.max(0,availableBeforeExpenses);
+  const cash=Math.max(0,availableBeforeExpenses);
   const emergencyTotal=fin.emergencyFund.contributions.reduce((a,x)=>a+(x.kind==="debit"?-1:1)*Number(x.amount||0),0);
   const goalTotal=fin.goals.reduce((a,g)=>a+Number(g.current||0),0);
   const invest=fin.investments.reduce((a,x)=>a+Number(x.current||0),0);
   const saving=income>0?Math.max(0,Math.min(100,(eAdd+gAdd+iAdd)/income*100)):0;
   const net=cash+emergencyTotal+goalTotal+invest;
-  return {income,expense,emergencyAdded:eAdd,emergencyDebited:eDebit,emergencyTotal,goalTotal,savingsAdded:gAdd,savingsDebited:gDebit,investmentAdded:iAdd,investmentDebited:iDebit,reserved,availableBeforeExpenses,availableForSaving,cash,invest,saving,net,recordedIncome:income,incomeBase:0};
+  return {income,expense,emergencyAdded:eAdd,emergencyDebited:eDebit,emergencyTotal,goalTotal,savingsAdded:gAdd,savingsDebited:gDebit,investmentAdded:iAdd,investmentDebited:iDebit,budgetReserved,reserved,availableBeforeExpenses,availableForSaving,cash,invest,saving,net,recordedIncome:income,incomeBase:0};
 }
 function saveFinance(){localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderDailyMissions?.();renderStreak?.();nosdeScheduleSync()}
 function monthlyRevenueRegistered(month=currentMonthFinance()){return !!(fin.monthlyIncome[month]?.registered)}
@@ -1605,7 +1607,7 @@ function renderFinanceMonthControl(t){
   const extras=monthMovesFinance().filter(x=>x.kind==="income").sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const show=v=>financeMonthVisible?money(v):financeHiddenMoney();
   const show2=v=>financeMonthVisible?money2(v):financeHiddenMoney2();
-  el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita mensal</small><b>${show(baseMonthlyIncomeValue())}</b></div><div class="finance-budget-card"><small>Outras receitas</small><b>${show(extra)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${show(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Disponível</small><b>${show(t.availableBeforeExpenses)}</b></div></div>${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${show2(x.amount)}</b></div>`).join("")}</div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`
+  el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita mensal</small><b>${show(baseMonthlyIncomeValue())}</b></div><div class="finance-budget-card"><small>Outras receitas</small><b>${show(extra)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${show(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Orçamento reservado</small><b>${show(t.budgetReserved)}</b></div><div class="finance-budget-card"><small>Disponível para gastar / poupar</small><b>${show(t.availableForSaving)}</b></div></div>${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${show2(x.amount)}</b></div>`).join("")}</div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`
 }
 function renderEmergencyFund(t){
   const el=document.getElementById("emergencyFundSection");if(!el)return;
@@ -1622,11 +1624,11 @@ function emergencyTargetModal(){const current=Number(fin.emergencyFund.target)||
 function saveEmergencyTarget(){const v=Number(document.getElementById("emergencyTarget")?.value);if(!isFinite(v)||v<0){alert("Indica uma meta válida.");return}fin.emergencyFund.target=v;closeModal();saveFinance();toast("Meta do Fundo de Emergência guardada.")}
 function financeBudgetModal(){
   if(!monthlyRevenueRegistered()){financeIncomeModal(true);return}if(!emergencyPlanComplete()){financeEmergencyModal(true);return}
-  const available=financeTotals().availableBeforeExpenses,old=budgetForMonth(),cats=FIN_CATEGORIES.map(c=>`<div class="field"><label>${esc(c)}</label><input class="budget-input" data-category="${esc(c)}" type="number" min="0" step="0.01" value="${Number(old?.categories?.[c]||0)}"></div>`).join("");
+  const old=budgetForMonth(),available=financeTotals().availableBeforeExpenses+(old?budgetTotal():0),cats=FIN_CATEGORIES.map(c=>`<div class="field"><label>${esc(c)}</label><input class="budget-input" data-category="${esc(c)}" type="number" min="0" step="0.01" value="${Number(old?.categories?.[c]||0)}"></div>`).join("");
   modal("Orçamento mensal · "+currentMonthFinance(),`<div class="form"><small style="color:var(--muted)">Disponível para alocação: <b>${money(available)}</b>. O orçamento é uma alocação planejada, não uma receita.</small><div class="formgrid" style="max-height:48vh;overflow:auto;padding-right:5px">${cats}</div><div id="budgetLiveTotal" class="checkpoint-box">Total planejado: 0 Kz</div><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveMonthlyBudget()">Guardar orçamento</button></div></div>`);
   const inputs=[...document.querySelectorAll(".budget-input")];const update=()=>{const total=inputs.reduce((a,x)=>a+Math.max(0,Number(x.value)||0),0);document.getElementById("budgetLiveTotal").innerHTML=`Total planejado: <b>${money(total)}</b> · Não orçamentado: <b>${money(Math.max(0,available-total))}</b>`;};inputs.forEach(x=>x.addEventListener("input",update));update();
 }
-function saveMonthlyBudget(){const month=currentMonthFinance(),available=financeTotals().availableBeforeExpenses,categories={};document.querySelectorAll(".budget-input").forEach(i=>categories[i.dataset.category]=Math.max(0,Number(i.value)||0));const total=FIN_CATEGORIES.reduce((a,c)=>a+categories[c],0);if(total>available+0.001){alert("O orçamento não pode ser superior ao dinheiro disponível para gastar / poupar.");return}const old=budgetForMonth();if(old)old.categories=categories;else fin.budgets.push({id:uid(),month,categories,createdAt:new Date().toISOString()});closeModal();saveFinance();toast("Orçamento mensal guardado.")}
+function saveMonthlyBudget(){const month=currentMonthFinance(),old=budgetForMonth(),available=financeTotals().availableBeforeExpenses+(old?budgetTotal():0),categories={};document.querySelectorAll(".budget-input").forEach(i=>categories[i.dataset.category]=Math.max(0,Number(i.value)||0));const total=FIN_CATEGORIES.reduce((a,c)=>a+categories[c],0);if(total>available+0.001){alert("O orçamento não pode ser superior ao dinheiro disponível para gastar / poupar.");return}if(old)old.categories=categories;else fin.budgets.push({id:uid(),month,categories,createdAt:new Date().toISOString()});closeModal();saveFinance();toast("Orçamento mensal guardado.")}
 function renderFinanceBudget(t){
   const el=document.getElementById("financeBudget");
   if(!el)return;
@@ -1657,6 +1659,16 @@ function financeInvestmentModal(){const available=financeTotals().availableForSa
 function addFinanceInvestment(){const n=document.getElementById("invName")?.value.trim(),a=Number(document.getElementById("invAmount")?.value);if(!n||!isFinite(a)||a<=0||a>financeTotals().availableForSaving){alert("Indica um investimento e um valor dentro do disponível.");return}const id=uid();fin.investments.push({id,name:n,current:a,contributed:a});fin.investmentMoves.push({id:uid(),investmentId:id,kind:"add",amount:a,date:today()});closeModal();saveFinance();toast(money(a)+" transferidos para o investimento.")}
 function updateInvestmentValue(i){const inv=fin.investments[i];if(!inv)return;let v=prompt("Valor atual do investimento (Kz)",String(inv.current||0));if(v===null)return;v=Number(v);if(!isFinite(v)||v<0){alert("Indica um valor válido.");return}inv.current=v;inv.updatedAt=new Date().toISOString();saveFinance();toast("Valor atual do investimento atualizado.")}
 function renderFinanceInvestments(){const el=document.getElementById("financeInvestments");if(!el)return;if(!fin.investments.length){el.innerHTML='<div class="finance-empty">Nenhum investimento registado.</div>';return}el.innerHTML=fin.investments.map((x,i)=>`<div class="finance-item"><span>📈 ${esc(x.name)} <small style="color:var(--muted)">· Valor atual</small></span><span style="display:flex;gap:8px;align-items:center"><b class="positive">${money(x.current)}</b><button class="btn sm" onclick="updateInvestmentValue(${i})">Atualizar</button></span></div>`).join("")}
+function deleteAllFinancialData(){
+  const ok=confirm("Apagar TODOS os dados financeiros desta conta?\n\nSerão apagados: receitas, despesas, Fundo de Emergência, objetivos financeiros, orçamento, investimentos e movimentos financeiros.\n\nOs teus projetos, ações, notas, objetivos pessoais, XP e a conta de login NÃO serão apagados.");
+  if(!ok)return;
+  fin=defaultFinance();
+  s.profile=s.profile||{};
+  s.profile.financial={name:s.profile.name||"",age:s.profile.age||"",income:0,extra:0,balance:0,savings:30,risk:"Moderado"};
+  localStorage.setItem(FINKEY,JSON.stringify(fin));
+  save();
+  toast("Dados financeiros apagados.");
+}
 function renderFinance(){
   const t=financeTotals(),fNet=document.getElementById("fNet");if(!fNet)return;fNet.textContent=patrimonyVisible?money(t.net):"Kz ***,00";document.getElementById("fIncome").textContent=money(t.income);document.getElementById("fExpense").textContent=money(t.expense);document.getElementById("fSave").textContent=t.saving.toFixed(1)+"%";document.getElementById("fInvest").textContent=money(t.invest);
   const b=budgetForMonth(),bt=budgetTotal();document.getElementById("financeSummary").innerHTML=`<div class="finance-item"><span>Receita deste mês</span><b class="positive">${money(t.income)}</b></div><div class="finance-item"><span>🛡️ Fundo de Emergência neste mês</span><b class="positive">${money(t.emergencyAdded)}</b></div><div class="finance-item"><span>Despesas deste mês</span><b class="negative">${money(t.expense)}</b></div><div class="finance-item"><span>Disponível para gastar / poupar</span><b>${money(t.availableForSaving)}</b></div><div class="finance-item"><span>Orçamento reservado</span><b>${money(bt)}</b></div><div class="finance-item"><span>Não orçamentado</span><b>${money(Math.max(0,t.availableBeforeExpenses-bt))}</b></div><div class="finance-item"><span>Poupanças / objetivos</span><b class="positive">${money(t.goalTotal)}</b></div><div class="finance-item"><span>Investimentos pelo valor atual</span><b>${money(t.invest)}</b></div><div class="finance-item"><span>Património total</span><b>${patrimonyVisible?money(t.net):"Kz ***,00"}</b></div>`;
