@@ -534,7 +534,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
   </div>
 
   <div class="panel finance-section">
-    <div class="panel-head"><h2>🧭 Controlo do mês</h2><span id="financeMonthStatus" class="budget-status"></span></div>
+    <div class="panel-head"><h2>🧭 Controlo do mês</h2><div class="actions"><span id="financeMonthStatus" class="budget-status"></span><button id="financeMonthEye" class="eye-btn" type="button" onclick="toggleFinanceMonthVisibility()" aria-label="Ocultar valores do controlo do mês">👁</button></div></div>
     <div id="financeMonthControl"></div>
   </div>
 
@@ -1496,7 +1496,11 @@ function financeTotals(month=currentMonthFinance()){
   const income=monthlyIncomeValue(month),expense=totalExpenses(month),eAdd=emergencyAdds(month),eDebit=emergencyDebits(month),gAdd=goalAdds(month),gDebit=goalDebits(month),iAdd=investmentAdds(month),iDebit=investmentDebits(month);
   const reserved=Math.max(0,eAdd-eDebit+gAdd-gDebit+iAdd-iDebit);
   const openingCash=Math.max(0,Number(fin.profile.cash)||0);
-  const availableBeforeExpenses=Math.max(0,openingCash+income-eAdd-gAdd-iAdd+eDebit+gDebit+iDebit);
+  // Receitas extra ficam disponíveis para gastar/poupar. A contribuição do Fundo
+  // é abatida primeiro à receita mensal e não consome automaticamente receitas extra.
+  const baseIncomeAvailable=Math.max(0,baseMonthlyIncomeValue(month)-eAdd+eDebit);
+  const extraIncomeAvailable=Math.max(0,extraIncomeForMonth(month));
+  const availableBeforeExpenses=Math.max(0,openingCash+baseIncomeAvailable+extraIncomeAvailable-gAdd-iAdd+gDebit+iDebit);
   const cash=Math.max(0,availableBeforeExpenses-expense);
   const availableForSaving=Math.max(0,availableBeforeExpenses-expense);
   const emergencyTotal=fin.emergencyFund.contributions.reduce((a,x)=>a+(x.kind==="debit"?-1:1)*Number(x.amount||0),0);
@@ -1590,11 +1594,19 @@ function addMovement(){
   if(d===today()){fin.dailyRecords[d]={status:"registered",updatedAt:new Date().toISOString()};completeMissionRewards?.(today(),false)}
   closeModal();saveFinance();renderFinanceGate();toast("Despesa registada.")
 }
-let patrimonyVisible=false,financeSort="amount";
+let patrimonyVisible=false,financeMonthVisible=true,financeSort="amount";
 function financeHiddenMoney(){return "Kz ***,00"}
 function financeHiddenMoney2(){return "***"}
 function togglePatrimonyVisibility(){patrimonyVisible=!patrimonyVisible;renderFinance()}
-function renderFinanceMonthControl(t){const el=document.getElementById("financeMonthControl");if(!el)return;const extra=extraIncomeForMonth(),budget=budgetForMonth();const extras=monthMovesFinance().filter(x=>x.kind==="income").sort((a,b)=>String(b.date).localeCompare(String(a.date)));el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita mensal</small><b>${money(baseMonthlyIncomeValue())}</b></div><div class="finance-budget-card"><small>Outras receitas</small><b>${money(extra)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${money(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Disponível</small><b>${money(t.availableBeforeExpenses)}</b></div></div>${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${money2(x.amount)}</b></div>`).join("")}</div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`}
+function toggleFinanceMonthVisibility(){financeMonthVisible=!financeMonthVisible;renderFinance()}
+function renderFinanceMonthControl(t){
+  const el=document.getElementById("financeMonthControl");if(!el)return;
+  const extra=extraIncomeForMonth(),budget=budgetForMonth();
+  const extras=monthMovesFinance().filter(x=>x.kind==="income").sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const show=v=>financeMonthVisible?money(v):financeHiddenMoney();
+  const show2=v=>financeMonthVisible?money2(v):financeHiddenMoney2();
+  el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita mensal</small><b>${show(baseMonthlyIncomeValue())}</b></div><div class="finance-budget-card"><small>Outras receitas</small><b>${show(extra)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${show(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Disponível</small><b>${show(t.availableBeforeExpenses)}</b></div></div>${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${show2(x.amount)}</b></div>`).join("")}</div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`
+}
 function renderEmergencyFund(t){
   const el=document.getElementById("emergencyFundSection");if(!el)return;
   const ef=fin.emergencyFund,total=Number(t.emergencyTotal)||0,target=Number(ef.target)||0,pct=target?Math.min(100,total/target*100):0,month=Number(t.emergencyAdded)||0,history=[...ef.contributions].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,20);
@@ -1648,7 +1660,7 @@ function renderFinanceInvestments(){const el=document.getElementById("financeInv
 function renderFinance(){
   const t=financeTotals(),fNet=document.getElementById("fNet");if(!fNet)return;fNet.textContent=patrimonyVisible?money(t.net):"Kz ***,00";document.getElementById("fIncome").textContent=money(t.income);document.getElementById("fExpense").textContent=money(t.expense);document.getElementById("fSave").textContent=t.saving.toFixed(1)+"%";document.getElementById("fInvest").textContent=money(t.invest);
   const b=budgetForMonth(),bt=budgetTotal();document.getElementById("financeSummary").innerHTML=`<div class="finance-item"><span>Receita deste mês</span><b class="positive">${money(t.income)}</b></div><div class="finance-item"><span>🛡️ Fundo de Emergência neste mês</span><b class="positive">${money(t.emergencyAdded)}</b></div><div class="finance-item"><span>Despesas deste mês</span><b class="negative">${money(t.expense)}</b></div><div class="finance-item"><span>Disponível para gastar / poupar</span><b>${money(t.availableForSaving)}</b></div><div class="finance-item"><span>Orçamento reservado</span><b>${money(bt)}</b></div><div class="finance-item"><span>Não orçamentado</span><b>${money(Math.max(0,t.availableBeforeExpenses-bt))}</b></div><div class="finance-item"><span>Poupanças / objetivos</span><b class="positive">${money(t.goalTotal)}</b></div><div class="finance-item"><span>Investimentos pelo valor atual</span><b>${money(t.invest)}</b></div><div class="finance-item"><span>Património total</span><b>${patrimonyVisible?money(t.net):"Kz ***,00"}</b></div>`;
-  document.getElementById("financePatrimonyTotal").textContent=patrimonyVisible?money(t.net):financeHiddenMoney();document.getElementById("patrimonyEye")?.replaceChildren(document.createTextNode(patrimonyVisible?"🙈":"👁"));document.getElementById("emergencyEye")?.replaceChildren(document.createTextNode(patrimonyVisible?"🙈":"👁"));document.getElementById("patrimonyEye")?.setAttribute("aria-label",patrimonyVisible?"Ocultar património":"Mostrar património");document.getElementById("emergencyEye")?.setAttribute("aria-label",patrimonyVisible?"Ocultar Fundo de Emergência":"Mostrar Fundo de Emergência");
+  document.getElementById("financePatrimonyTotal").textContent=patrimonyVisible?money(t.net):financeHiddenMoney();document.getElementById("patrimonyEye")?.replaceChildren(document.createTextNode(patrimonyVisible?"🙈":"👁"));document.getElementById("emergencyEye")?.replaceChildren(document.createTextNode(patrimonyVisible?"🙈":"👁"));document.getElementById("patrimonyEye")?.setAttribute("aria-label",patrimonyVisible?"Ocultar património":"Mostrar património");document.getElementById("emergencyEye")?.setAttribute("aria-label",patrimonyVisible?"Ocultar Fundo de Emergência":"Mostrar Fundo de Emergência");document.getElementById("financeMonthEye")?.replaceChildren(document.createTextNode(financeMonthVisible?"🙈":"👁"));document.getElementById("financeMonthEye")?.setAttribute("aria-label",financeMonthVisible?"Ocultar valores do controlo do mês":"Mostrar valores do controlo do mês");
   renderFinanceMonthControl(t);renderEmergencyFund(t);renderFinanceBudget(t);renderFinanceGoals();renderFinanceInvestments();renderFinanceCharts();renderFinanceReports();renderFinanceGate();
   const cats={};monthMovesFinance().filter(x=>x.kind==="expense").forEach(x=>cats[x.category]=(cats[x.category]||0)+Number(x.amount||0));const vals=Object.values(cats),max=Math.max(1,...vals),total=t.expense;document.getElementById("financeDistribution").innerHTML=vals.length?Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="finance-barrow"><label><span>${esc(k)}</span><b>${money2(v)} · ${total?(v/total*100).toFixed(2):"0.00"}%</b></label><div class="finance-bar"><i style="width:${v/max*100}%"></i></div></div>`).join(""):'<div class="finance-empty">Regista despesas para começar a analisar a distribuição.</div>';
   document.getElementById("financeMoves").innerHTML=fin.moves.length?[...fin.moves].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,15).map(x=>`<div class="finance-item"><span>${esc(x.name)} <small style="color:var(--muted)">· ${esc(x.category||x.kind)}</small></span><b class="${x.kind==="income"?'positive':'negative'}">${x.kind==="income"?'+':'−'} ${money2(x.amount)}</b></div>`).join(""):'<div class="finance-empty">Nenhum movimento registado.</div>';
