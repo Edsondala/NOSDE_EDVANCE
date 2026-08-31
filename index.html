@@ -42,7 +42,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 .calendar{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}.cal-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}.month{font-weight:800;text-transform:capitalize}.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}.dow{padding:8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-size:9px;color:var(--muted);font-weight:800}.day{min-height:105px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:7px;position:relative;cursor:pointer;background:var(--panel)}.day:hover{background:var(--panel2)}.day.other{opacity:.45}.day.selected{box-shadow:inset 0 0 0 2px var(--purple)}.day.today .num{background:var(--purple);color:#fff;border-radius:50%;padding:3px 6px}.num{font-size:10px;font-weight:700;display:inline-block}.day.rem-red,.day.rem-yellow,.day.rem-green{color:#10151b}.day.rem-red{background:#ef596d}.day.rem-yellow{background:#e8bd55}.day.rem-green{background:#50d9aa}.day.rem-red .event,.day.rem-yellow .event,.day.rem-green .event{background:rgba(255,255,255,.72);color:#111}.events{display:grid;gap:3px;margin-top:5px}.event{font-size:8px;border-radius:4px;padding:4px 5px;background:var(--panel2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.selected-box{padding:12px;border-top:1px solid var(--line)}.selected-box h3{margin:0 0 8px;font-size:12px}
 .reminder-grid{display:grid;grid-template-columns:1fr 360px;gap:14px}.reminder-card{border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--panel2);margin-bottom:7px}.reminder-card strong{font-size:11px}.reminder-card small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
 .pomo-wrap{max-width:650px;margin:auto}.pomo-tabs{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:30px;padding:3px;margin-bottom:22px}.pomo-tabs button{border:0;background:transparent;color:var(--muted);padding:9px;border-radius:22px;font-size:11px}.pomo-tabs button.active{background:var(--green);color:#06261b;font-weight:800}.pomo-circle{width:260px;height:260px;border-radius:50%;border:13px solid var(--green);margin:auto;display:grid;place-items:center;text-align:center}.pomo-time{font-size:48px;font-weight:800}.pomo-label{font-size:10px;color:var(--muted)}.pomo-bg-status{text-align:center;color:var(--muted);font-size:9px;margin-top:7px}.pomo-adjust{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:15px}.pomo-adjust span{min-width:62px;text-align:center;color:var(--text);font-size:10px;font-weight:800}.pomo-controls{display:flex;justify-content:center;gap:10px;margin-top:14px}.pomo-controls button{width:42px;height:38px}.settings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.goals{display:grid;gap:8px}.goal{border:1px solid var(--line);border-radius:11px;padding:12px;background:var(--panel2)}.goal-head{display:flex;justify-content:space-between;gap:8px}.goal strong{font-size:12px}.goal p{font-size:10px;color:var(--muted)}.progress{height:7px;background:var(--bg);border-radius:20px;overflow:hidden}.progress i{display:block;height:100%;background:var(--purple)}
+.goals{display:grid;gap:8px}.goal-date{font-size:10px;color:var(--muted);margin:6px 0}.goal-day{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.goal{border:1px solid var(--line);border-radius:11px;padding:12px;background:var(--panel2)}.goal-head{display:flex;justify-content:space-between;gap:8px}.goal strong{font-size:12px}.goal p{font-size:10px;color:var(--muted)}.progress{height:7px;background:var(--bg);border-radius:20px;overflow:hidden}.progress i{display:block;height:100%;background:var(--purple)}
 
 /* OFENSIVA + MISSOES DIARIAS, integradas com o tema global */
 .streak-card{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--streak-bg1),var(--streak-bg2));border:1px solid var(--streak-line);border-radius:15px;padding:18px;margin-bottom:14px;color:var(--streak-text)}
@@ -324,6 +324,32 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 <section id="home" class="page active">
   <div class="top"><div><h1>Início</h1><p>O teu sistema pessoal de evolução contínua.</p></div><div class="actions"><button class="btn" onclick="openActionModal()">＋ Ação</button><button class="btn primary" onclick="openGoalModal()">＋ Objetivo</button></div></div>
   <div class="hero"><div class="eyebrow">PDCA PESSOAL</div><h2>Planeia. Executa. Verifica. Evolui.</h2><p>Uma área única para organizar ações, compromissos, foco e desenvolvimento pessoal.</p><div class="pdca"><div class="step"><b>P</b><span>Planear</span></div><div class="step"><b>D</b><span>Executar</span></div><div class="step"><b>C</b><span>Verificar</span></div><div class="step"><b>A</b><span>Ajustar</span></div></div></div>
+  <div id="weeklyPDCACard" class="panel" style="margin-top:14px;display:none">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">PDCA SEMANAL · DOMINGO</div>
+        <h2 style="margin:2px 0 0">Verificar. Ajustar. Evoluir.</h2>
+      </div>
+      <span id="weeklyPDCAWeek" class="budget-status"></span>
+    </div>
+    <p id="weeklyPDCAIntro" style="font-size:11px;color:var(--muted);margin:0 0 12px"></p>
+    <div id="weeklyPDCAKPIs" class="kpis" style="margin:0 0 12px"></div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <div class="finance-item" style="display:block;border:1px solid var(--border);border-radius:12px;padding:12px">
+        <strong style="color:var(--positive)">🟢 Onde estás bem</strong>
+        <div id="weeklyPDCAGood" style="margin-top:8px"></div>
+      </div>
+      <div class="finance-item" style="display:block;border:1px solid var(--border);border-radius:12px;padding:12px">
+        <strong style="color:var(--danger)">🟠 Onde precisas melhorar</strong>
+        <div id="weeklyPDCANeeds" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:12px;border-radius:12px;background:var(--soft);border:1px solid var(--border)">
+      <strong>⚙️ Ajuste recomendado para a próxima semana</strong>
+      <p id="weeklyPDCAAction" style="margin:6px 0 0;font-size:11px;color:var(--muted)"></p>
+    </div>
+  </div>
+
   <div class="kpis"><div class="kpi"><small>Objetivos ativos</small><strong id="kGoals">0</strong></div><div class="kpi"><small>Ações de hoje</small><strong id="kActions">0</strong></div><div class="kpi"><small>Lembretes</small><strong id="kReminders">0</strong></div><div class="kpi"><small>Notas</small><strong id="kNotes">0</strong></div></div>
 
   <div class="streak-card">
@@ -366,7 +392,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
   <div class="calendar"><div class="cal-toolbar"><div class="actions"><button class="btn" onclick="goToday()">Hoje</button><button class="btn" onclick="changeMonth(-1)">‹</button><button class="btn" onclick="changeMonth(1)">›</button></div><div id="monthTitle" class="month"></div></div><div id="calGrid" class="cal-grid"></div><div class="selected-box"><h3 id="selectedDateTitle"></h3><div id="selectedEvents"></div></div></div>
 </section>
 
-<section id="actions" class="page"><div class="top"><div><h1>Ações</h1><p>Podes criar ações para hoje, amanhã ou qualquer outro dia, incluindo datas anteriores.</p></div><button class="btn primary" onclick="openActionModal()">＋ Nova ação</button></div><div class="panel"><div id="actionsList" class="list"></div></div></section>
+<section id="actions" class="page"><div class="top"><div><h1>Ações</h1><p>Cada ação vale por um único dia. Ao terminar o dia, é avaliada e enviada para as Estatísticas; se tiver repetição, a próxima ocorrência aparece no dia seguinte programado.</p></div><button class="btn primary" onclick="openActionModal()">＋ Nova ação</button></div><div class="panel"><div id="actionsList" class="list"></div></div></section>
 
 <section id="reminders" class="page"><div class="top"><div><h1>Lembretes</h1><p>Alarmes em 7, 3, 2, 1 dia e no próprio dia.</p></div><button class="btn primary" onclick="openReminderModal()">＋ Novo lembrete</button></div><div class="reminder-grid"><div class="panel"><div id="remindersList"></div></div><div class="panel"><h2>Alarmes</h2><p style="color:var(--muted);font-size:10px;line-height:1.6">Quando chegares aos dias configurados, o NOSDE EDVANCE mostra um aviso e, se autorizares, envia uma notificação do navegador.</p><div class="actions"><button class="btn green" onclick="requestNotifications()">🔔 Ativar notificações + som</button><button class="btn" onclick="testAlarmSound()">🔊 Testar som</button></div><small id="notificationStatus" style="display:block;color:var(--muted);font-size:9px;margin-top:9px">Estado: a verificar…</small></div></div></section>
 
@@ -411,7 +437,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 
 <section id="goals" class="page"><div class="top"><div><h1>Objetivos</h1><p>Transforma intenções em resultados mensuráveis.</p></div><button class="btn primary" onclick="openGoalModal()">＋ Novo objetivo</button></div><div id="goalsList" class="goals"></div></section>
 
-<section id="stats" class="page"><div class="top"><div><h1>Estatísticas</h1><p>Vê o teu progresso e a tua consistência.</p></div></div><div class="kpis"><div class="kpi"><small>🔥 Dias seguidos</small><strong id="statStreak">0</strong></div><div class="kpi"><small>⚡ Total de XP</small><strong id="statXp">0</strong></div><div class="kpi"><small>💠 Divisão</small><strong id="statLeague">Ascensão</strong></div><div class="kpi"><small>🏅 Pódios</small><strong id="statMedals">0</strong></div></div><div class="kpis" style="margin-top:10px"><div class="kpi"><small>Ações concluídas</small><strong id="statDone">0</strong></div><div class="kpi"><small>Ações totais</small><strong id="statTotal">0</strong></div><div class="kpi"><small>Objetivos</small><strong id="statGoals">0</strong></div><div class="kpi"><small>Notas</small><strong id="statNotes">0</strong></div></div></section>
+<section id="stats" class="page"><div class="top"><div><h1>Estatísticas</h1><p>Vê o teu progresso e a tua consistência.</p></div></div><div class="kpis"><div class="kpi"><small>🔥 Dias seguidos</small><strong id="statStreak">0</strong></div><div class="kpi"><small>⚡ Total de XP</small><strong id="statXp">0</strong></div><div class="kpi"><small>💠 Divisão</small><strong id="statLeague">Ascensão</strong></div><div class="kpi"><small>🏅 Pódios</small><strong id="statMedals">0</strong></div></div><div class="kpis" style="margin-top:10px"><div class="kpi"><small>Ações concluídas</small><strong id="statDone">0</strong></div><div class="kpi"><small>Ações não concluídas</small><strong id="statMissed">0</strong></div><div class="kpi"><small>Ações avaliadas</small><strong id="statTotal">0</strong></div><div class="kpi"><small>Objetivos</small><strong id="statGoals">0</strong></div><div class="kpi"><small>Notas</small><strong id="statNotes">0</strong></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>📚 Histórico de ações</h2><span class="budget-status">Concluídas e não concluídas</span></div><div id="actionHistoryStats" class="list"></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>🎯 Histórico de objetivos</h2><span class="budget-status">Concluídos e encerrados</span></div><div id="goalHistoryStats" class="list"></div></div></section>
 
 <section id="profile" class="page">
   <div class="top">
@@ -797,7 +823,7 @@ function load(){try{
   }
   return out;
 }catch(e){return defaults()}}
-let s=load(), viewDate=new Date(), selected=today(), noteFolder="all", currentNoteId=null, currentNoteType="text", pomoMode="focus", pomoRemaining=s.pomo.focus*60, pomoRunning=false, pomoTimer=null, canvasCtx=null, canvasDown=false, canvasTool="pen", canvasColor="#111", canvasSize=3;
+let s=load(), viewDate=new Date(), selected=today(), noteFolder="all", currentNoteId=null, currentNoteType="text", pomoMode="focus", pomoRemaining=s.pomo.focus*60, pomoRunning=false, pomoTimer=null, canvasCtx=null, canvasDown=false, canvasTool="pen", canvasColor="#111", canvasSize=3; archivePastActions(); archivePastGoals();
 viewDate.setDate(1);
 
 function save(){localStorage.setItem(KEY,JSON.stringify(s));renderAll();nosdeScheduleSync()}
@@ -818,11 +844,46 @@ function modal(title,body){document.getElementById("modalTitle").textContent=tit
 function closeModal(){const m=document.getElementById("modal");if(m){m.classList.remove("open");m.classList.remove("finance-locked-modal")}}
 function toggleTheme(){const t=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=t;localStorage.setItem("evolve_theme",t);nosdeScheduleSync();document.getElementById("themeBtn").textContent=t==="light"?"🌙 Tema escuro":"☀️ Tema claro";if(currentNoteType==="canvas"&&currentNoteId)renderCanvasNote();toast(t==="light"?"Tema claro":"Tema escuro")}
 
+function actionDateLabel(ds){return new Date(ds+"T12:00:00").toLocaleDateString("pt-PT",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric"})}
+function addDaysToDate(ds,n){const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()+n);return dateKey(d)}
+function addMonthsToDate(ds,n){const d=new Date(ds+"T12:00:00");const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return dateKey(d)}
+function recurrenceDates(start,freq,endDate){const out=[];if(!freq)return out;let cur=start;let guard=0;while(cur<endDate&&guard<500){cur=freq==="daily"?addDaysToDate(cur,1):freq==="weekly"?addDaysToDate(cur,7):addMonthsToDate(cur,1);if(cur<endDate)out.push(cur);guard++;}return out}
 function openActionModal(date=selected){
- modal("Nova ação",`<div class="form"><label>Ação</label><input id="fAction" placeholder="Ex.: estudar modelação 3D"><div class="row"><div><label>Data</label><input id="fActionDate" type="date" value="${date||today()}"></div><div><label>Hora</label><input id="fActionTime" type="time" value="08:00"></div></div><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="createAction()">Criar ação</button></div></div>`)
+ modal("Nova ação",`<div class="form"><label>Ação</label><input id="fAction" placeholder="Ex.: estudar modelação 3D"><div class="row"><div><label>Data</label><input id="fActionDate" type="date" value="${date||today()}"></div><div><label>Hora</label><input id="fActionTime" type="time" value="08:00"></div></div><label>Repetição</label><select id="fActionRepeat"><option value="none">Não repetir</option><option value="daily">Todos os dias</option><option value="weekly">Todas as semanas</option><option value="monthly">Todos os meses</option></select><label>Duração da repetição</label><select id="fActionRepeatFor"><option value="none">Apenas este dia</option><option value="week">1 semana</option><option value="month">1 mês</option><option value="3months">3 meses</option><option value="6months">6 meses</option><option value="year">1 ano</option><option value="forever">Sem data final</option></select><small style="color:var(--muted);font-size:9px;line-height:1.5">Cada ocorrência vale apenas para o dia indicado. No fim do dia, fica registada nas estatísticas como concluída ou não concluída.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="createAction()">Criar ação</button></div></div>`)
 }
-function createAction(){const title=document.getElementById("fAction").value.trim();if(!title)return; s.actions.push({id:uid(),title,date:document.getElementById("fActionDate").value,time:document.getElementById("fActionTime").value,done:false});closeModal();save();toast("Ação criada.")}
-function toggleAction(id){const a=s.actions.find(x=>x.id===id);if(a){a.done=!a.done;if(a.done&&a.date===today())completeMissionRewards(today(),false);save()}}
+function recurrenceEndDate(start,forHow){if(forHow==="week")return addDaysToDate(start,7);if(forHow==="month")return addMonthsToDate(start,1);if(forHow==="3months")return addMonthsToDate(start,3);if(forHow==="6months")return addMonthsToDate(start,6);if(forHow==="year")return addMonthsToDate(start,12);if(forHow==="forever")return "9999-12-31";return addDaysToDate(start,1)}
+function nextRecurringDate(ds,freq){return freq==="daily"?addDaysToDate(ds,1):freq==="weekly"?addDaysToDate(ds,7):freq==="monthly"?addMonthsToDate(ds,1):null}
+function createAction(){
+ const title=document.getElementById("fAction").value.trim();if(!title)return;
+ const start=document.getElementById("fActionDate").value||today(),time=document.getElementById("fActionTime").value||"08:00",repeat=document.getElementById("fActionRepeat").value,repeatFor=document.getElementById("fActionRepeatFor").value;
+ const recurring=repeat!=="none"&&repeatFor!=="none",groupId=uid(),repeatUntil=recurring?recurrenceEndDate(start,repeatFor):start;
+ s.actions.push({id:uid(),title,date:start,time,done:false,archived:false,occurrence:1,recurrence:repeat,recurrenceGroup:groupId,repeatUntil:recurring?repeatUntil:null});
+ closeModal();save();toast(recurring?"Ação criada. A próxima ocorrência surgirá após cada dia encerrado enquanto a repetição estiver ativa.":"Ação criada.")
+}
+function ensureRecurringNextOccurrence(a){
+ if(!a.recurrence||a.recurrence==="none"||!a.repeatUntil)return false;
+ let changed=false,next=nextRecurringDate(a.date,a.recurrence),occ=Number(a.occurrence||1)+1,guard=0;
+ while(next&&next<a.repeatUntil&&guard<500){
+   const exists=s.actions.some(x=>x.recurrenceGroup===a.recurrenceGroup&&x.date===next);
+   if(!exists){s.actions.push({id:uid(),title:a.title,date:next,time:a.time||"08:00",done:false,archived:false,occurrence:occ,recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,repeatUntil:a.repeatUntil});changed=true;break}
+   next=nextRecurringDate(next,a.recurrence);occ++;guard++;
+ }
+ return changed;
+}
+function archivePastActions(){
+ const t=today();let changed=false;
+ // Cada ocorrência representa apenas um dia. Ao terminar esse dia, ela é
+ // definitivamente avaliada e, se houver repetição, nasce a próxima ocorrência.
+ const past=[...s.actions].filter(a=>a.date<t&&!a.archived).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+ past.forEach(a=>{
+   a.archived=true;a.outcome=a.done?"completed":"missed";a.archivedAt=Date.now();changed=true;
+   if(ensureRecurringNextOccurrence(a))changed=true;
+ });
+ if(changed){localStorage.setItem(KEY,JSON.stringify(s));if(typeof nosdeScheduleSync==="function")nosdeScheduleSync()}
+ return changed;
+}
+function activeActions(){archivePastActions();return s.actions.filter(a=>!a.archived&&a.date===today())}
+function toggleAction(id){const a=s.actions.find(x=>x.id===id);if(a&&!a.archived){a.done=!a.done;if(a.done&&a.date===today())completeMissionRewards(today(),false);save()}}
 function deleteAction(id){s.actions=s.actions.filter(x=>x.id!==id);save()}
 
 function openReminderModal(date=selected){
@@ -834,11 +895,13 @@ function deleteReminder(id){s.reminders=s.reminders.filter(x=>x.id!==id);save()}
 
 function renderCalendar(){const y=viewDate.getFullYear(),m=viewDate.getMonth();document.getElementById("monthTitle").textContent=new Date(y,m,1).toLocaleDateString("pt-PT",{month:"long",year:"numeric"});const g=document.getElementById("calGrid");g.innerHTML=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(x=>`<div class="dow">${x}</div>`).join("");const first=(new Date(y,m,1).getDay()+6)%7;const days=new Date(y,m+1,0).getDate();const prev=new Date(y,m,0).getDate();let cells=[];for(let i=0;i<42;i++){let day=i-first+1,yy=y,mm=m;if(day<1){day=prev+day;mm=m-1;if(mm<0){mm=11;yy--}}else if(day>days){day=day-days;mm=m+1;if(mm>11){mm=0;yy++}}const ds=`${yy}-${String(mm+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;const rs=s.reminders.filter(r=>r.date===ds);const as=s.actions.filter(a=>a.date===ds);const classes=["day",mm!==m?"other":"",ds===selected?"selected":"",ds===today()?"today":""];if(rs.length)classes.push("rem-"+rs[0].color);cells.push(`<div class="${classes.join(" ")}" onclick="selectDate('${ds}')"><span class="num">${day}</span><div class="events">${rs.slice(0,3).map(r=>`<div class="event">🔔 ${esc(r.title)}</div>`).join("")}${as.slice(0,2).map(a=>`<div class="event">✓ ${esc(a.title)}</div>`).join("")}</div></div>`)}g.insertAdjacentHTML("beforeend",cells.join(""))}
 function selectDate(ds){selected=ds;renderCalendar();renderSelected()}
-function renderSelected(){document.getElementById("selectedDateTitle").textContent=new Date(selected+"T12:00:00").toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long",year:"numeric"});const rs=s.reminders.filter(x=>x.date===selected),as=s.actions.filter(x=>x.date===selected);document.getElementById("selectedEvents").innerHTML=[...rs.map(r=>`<div class="list-row"><div class="meta"><strong>🔔 ${esc(r.title)}</strong><small>${r.time} · ${r.alerts.map(a=>a===0?"hoje":a+"d antes").join(", ")}</small></div><button class="btn sm danger" onclick="deleteReminder('${r.id}')">Apagar</button></div>`),...as.map(a=>`<div class="list-row"><div class="meta"><strong>${a.done?"☑":"☐"} ${esc(a.title)}</strong><small>${a.time||""}</small></div><button class="btn sm" onclick="toggleAction('${a.id}')">${a.done?"Reabrir":"Concluir"}</button></div>`)].join("")||`<div class="empty">Nenhum compromisso neste dia.</div>`}
+function renderSelected(){document.getElementById("selectedDateTitle").textContent=new Date(selected+"T12:00:00").toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long",year:"numeric"});const rs=s.reminders.filter(x=>x.date===selected),as=s.actions.filter(x=>x.date===selected&&!x.archived);document.getElementById("selectedEvents").innerHTML=[...rs.map(r=>`<div class="list-row"><div class="meta"><strong>🔔 ${esc(r.title)}</strong><small>${r.time} · ${r.alerts.map(a=>a===0?"hoje":a+"d antes").join(", ")}</small></div><button class="btn sm danger" onclick="deleteReminder('${r.id}')">Apagar</button></div>`),...as.map(a=>`<div class="list-row"><div class="meta"><strong>${a.done?"☑":"☐"} ${esc(a.title)}</strong><small>${a.time||""} · válido apenas neste dia</small></div><button class="btn sm" onclick="toggleAction('${a.id}')">${a.done?"Reabrir":"Concluir"}</button></div>`)].join("")||`<div class="empty">Nenhum compromisso neste dia.</div>`}
+
 function changeMonth(n){viewDate.setMonth(viewDate.getMonth()+n);renderCalendar()}
 function goToday(){const d=new Date();viewDate=new Date(d.getFullYear(),d.getMonth(),1);selected=today();renderCalendar();renderSelected()}
 
-function renderActions(){const arr=[...s.actions].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));document.getElementById("actionsList").innerHTML=arr.map(a=>`<div class="list-row"><div class="meta"><strong>${a.done?"☑":"☐"} ${esc(a.title)}</strong><small>${a.date} ${a.time||""}</small></div><div class="actions"><button class="btn sm" onclick="toggleAction('${a.id}')">${a.done?"Reabrir":"Concluir"}</button><button class="btn sm danger" onclick="deleteAction('${a.id}')">×</button></div></div>`).join("")||`<div class="empty">Ainda não tens ações.</div>`}
+function renderActions(){archivePastActions();const arr=activeActions().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));document.getElementById("actionsList").innerHTML=arr.map(a=>`<div class="list-row"><div class="meta"><strong>☐ ${esc(a.title)}</strong><small>${actionDateLabel(a.date)} · ${a.time||""} · ${a.recurrence&&a.recurrence!=="none"?({daily:"repetição diária",weekly:"repetição semanal",monthly:"repetição mensal"}[a.recurrence]||""):"ação de um dia"}</small></div><div class="actions"><button class="btn sm" onclick="toggleAction('${a.id}')">Concluir</button><button class="btn sm danger" onclick="deleteAction('${a.id}')">×</button></div></div>`).join("")||`<div class="empty">Não tens ações ativas. As ações que terminaram o dia foram encaminhadas para as Estatísticas.</div>`}
+
 function renderReminders(){document.getElementById("remindersList").innerHTML=s.reminders.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>`<div class="reminder-card"><div style="display:flex;justify-content:space-between"><strong>${esc(r.title)}</strong><button class="btn sm danger" onclick="deleteReminder('${r.id}')">×</button></div><small>${r.date} · ${r.time} · ${r.alerts.map(a=>a===0?"no dia":a+" dias antes").join(" · ")}</small><p style="font-size:10px;color:var(--muted)">${esc(r.notes||"")}</p></div>`).join("")||`<div class="empty">Ainda não tens lembretes.</div>`}
 
 function dateKey(d=new Date()){const x=new Date(d);return x.toISOString().slice(0,10)}
@@ -1015,11 +1078,199 @@ function renderMissionCountdown(){const now=new Date(),end=new Date(now);end.set
 function registerFocusMinutes(minutes){const ds=today();s.gamification.focusMinutes=s.gamification.focusMinutes||{};s.gamification.focusMinutes[ds]=(Number(s.gamification.focusMinutes[ds])||0)+Number(minutes||0);completeMissionRewards(ds,false);save()}
 function registerGoalAdvance(){const ds=today();s.gamification.goalAdvances=s.gamification.goalAdvances||{};s.gamification.goalAdvances[ds]=(Number(s.gamification.goalAdvances[ds])||0)+1;completeMissionRewards(ds,false);save();}
 
-function renderHome(){renderDailyMissions();renderStreak();renderMissionCountdown();renderGamificationOverview();renderMonthlyMedals();document.getElementById("kGoals").textContent=s.goals.length;document.getElementById("kActions").textContent=s.actions.filter(a=>a.date===today()).length;document.getElementById("kReminders").textContent=s.reminders.length;document.getElementById("kNotes").textContent=s.notes.length;document.getElementById("homeActions").innerHTML=s.actions.filter(a=>a.date>=today()).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,5).map(a=>`<div class="list-row"><div class="meta"><strong>${a.done?"☑":"☐"} ${esc(a.title)}</strong><small>${a.date} ${a.time||""}</small></div></div>`).join("")||`<div class="empty">Sem ações.</div>`;document.getElementById("homeReminders").innerHTML=s.reminders.filter(r=>r.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5).map(r=>`<div class="list-row"><div class="meta"><strong>🔔 ${esc(r.title)}</strong><small>${r.date} · ${r.time}</small></div></div>`).join("")||`<div class="empty">Sem lembretes.</div>`}
-function openGoalModal(){modal("Novo objetivo",`<div class="form"><label>Objetivo</label><input id="gTitle" placeholder="Ex.: Melhorar desenho técnico"><label>Meta</label><input id="gTarget" type="number" min="1" value="100"><label>Progresso inicial (%)</label><input id="gProgress" type="number" min="0" max="100" value="0"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="createGoal()">Criar</button></div></div>`)}
-function createGoal(){const title=document.getElementById("gTitle").value.trim();if(!title)return;s.goals.push({id:uid(),title,target:Number(document.getElementById("gTarget").value)||100,progress:Number(document.getElementById("gProgress").value)||0});closeModal();save()}
-function renderGoals(){document.getElementById("goalsList").innerHTML=s.goals.map(g=>`<div class="goal"><div class="goal-head"><strong>${esc(g.title)}</strong><button class="btn sm danger" onclick="deleteGoal('${g.id}')">×</button></div><p>${g.progress}% de progresso</p><div class="progress"><i style="width:${Math.min(100,Math.max(0,g.progress))}%"></i></div><div class="actions" style="margin-top:8px"><button class="btn sm" onclick="changeGoal('${g.id}',-10)">−10</button><button class="btn sm" onclick="changeGoal('${g.id}',10)">+10</button></div></div>`).join("")||`<div class="empty">Ainda não tens objetivos.</div>`}
-function changeGoal(id,n){const g=s.goals.find(x=>x.id===id);if(g){const before=g.progress;g.progress=Math.min(100,Math.max(0,g.progress+n));if(g.progress!==before&&n>0)registerGoalAdvance();save()}}
+
+function weeklyPDCADateRange(ds=today()){
+  const end=new Date(ds+"T12:00:00");
+  const start=new Date(end); start.setDate(start.getDate()-6);
+  const fmt=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return {start:fmt(start),end:fmt(end)};
+}
+function weeklyPDCARangeLabel(r){
+  const a=new Date(r.start+"T12:00:00"),b=new Date(r.end+"T12:00:00");
+  return `${a.toLocaleDateString("pt-PT",{day:"2-digit",month:"2-digit"})} → ${b.toLocaleDateString("pt-PT",{day:"2-digit",month:"2-digit",year:"numeric"})}`;
+}
+function weeklyPDCARender(){
+  const card=document.getElementById("weeklyPDCACard");
+  if(!card)return;
+  const now=new Date();
+  // O PDCA semanal aparece apenas aos domingos.
+  if(now.getDay()!==0){card.style.display="none";return;}
+  card.style.display="";
+  const r=weeklyPDCADateRange();
+  const inRange=d=>String(d||"")>=r.start&&String(d||"")<=r.end;
+
+  // AÇÕES
+  const actions=s.actions.filter(a=>inRange(a.date));
+  const evaluated=actions.filter(a=>a.archived||a.outcome==="completed"||a.outcome==="missed");
+  const done=actions.filter(a=>a.outcome==="completed"||a.done).length;
+  const missed=actions.filter(a=>a.outcome==="missed"&&!a.done).length;
+  const actionRate=evaluated.length?done/evaluated.length*100:0;
+
+  // OBJETIVOS
+  let goalCompletedDays=0,goalMissedDays=0,goalTrackedDays=0,activeGoals=0,goalFinished=0;
+  s.goals.forEach(g=>{
+    if(g.archivedAt && new Date(g.archivedAt).toISOString().slice(0,10)<r.start)return;
+    if(!g.hasDates){
+      if(!g.archived)activeGoals++;
+      if(g.outcome==="completed"&&g.archivedAt&&inRange(new Date(g.archivedAt).toISOString().slice(0,10)))goalFinished++;
+      return;
+    }
+    activeGoals+=g.archived?0:1;
+    Object.entries(g.dayStatus||{}).forEach(([d,v])=>{
+      if(inRange(d)){goalTrackedDays++;if(v==="completed")goalCompletedDays++;if(v==="missed")goalMissedDays++;}
+    });
+    if(g.archived&&g.archivedAt&&inRange(new Date(g.archivedAt).toISOString().slice(0,10))&&g.outcome==="completed")goalFinished++;
+  });
+  const goalRate=goalTrackedDays?(goalCompletedDays/goalTrackedDays*100):0;
+
+  // PROJETOS
+  const projects=projectState?.projects||[];
+  const projectDone=projects.filter(p=>p.status==="done"&&p.completedAt&&inRange(new Date(p.completedAt).toISOString().slice(0,10))).length;
+  const projectMinutes=projects.reduce((sum,p)=>
+    sum+(p.workLog||[]).filter(x=>inRange(x.date)).reduce((a,x)=>a+Number(x.minutes||0),0),0);
+  const projectChanges=projects.reduce((sum,p)=>
+    sum+(p.alterations||[]).filter(x=>x.date?inRange(x.date):false).length,0);
+  const completedProjects=projects.filter(p=>p.status==="done");
+  const projectAccuracy=completedProjects.length?
+    completedProjects.reduce((sum,p)=>sum+projectAccuracySafe(p),0)/completedProjects.length:null;
+
+  // FINANÇAS
+  const moves=(fin?.moves||[]).filter(x=>inRange(x.date));
+  const income=moves.filter(x=>x.kind==="income").reduce((a,x)=>a+Number(x.amount||0),0);
+  const expense=moves.filter(x=>x.kind==="expense").reduce((a,x)=>a+Number(x.amount||0),0);
+  const reservations=
+    (fin?.emergencyFund?.contributions||[]).filter(x=>inRange(x.date)&&x.kind!=="debit").reduce((a,x)=>a+Number(x.amount||0),0)+
+    (fin?.goalMoves||[]).filter(x=>inRange(x.date)&&x.kind!=="debit").reduce((a,x)=>a+Number(x.amount||0),0)+
+    (fin?.investmentMoves||[]).filter(x=>inRange(x.date)&&x.kind!=="debit").reduce((a,x)=>a+Number(x.amount||0),0);
+  const savingRate=income?Math.max(0,Math.min(100,(income-expense)/income*100)):null;
+
+  function projectAccuracySafe(p){
+    try{return Number(projectAccuracy(p))||0}catch(e){return 0}
+  }
+  function item(icon,title,text){return `<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:11px"><strong>${icon} ${esc(title)}</strong><div style="color:var(--muted);margin-top:3px">${esc(text)}</div></div>`}
+  const good=[],needs=[];
+  if(evaluated.length){
+    if(actionRate>=80)good.push(item("✓","Ações","Taxa de conclusão de "+Math.round(actionRate)+"% nesta semana."));
+    else needs.push(item("⚠","Ações","Taxa de conclusão de "+Math.round(actionRate)+"%. Reduz o número de ações ou protege horários de execução."));
+  }else needs.push(item("⚠","Ações","Ainda não há ações avaliadas no período."));
+  if(goalTrackedDays){
+    if(goalRate>=80)good.push(item("✓","Objetivos",Math.round(goalRate)+"% dos dias registados dos objetivos com prazo foram cumpridos."));
+    else needs.push(item("⚠","Objetivos",Math.round(goalRate)+"% dos dias foram cumpridos. Dias falhados reduzem diretamente a percentagem do objetivo."));
+  }else if(activeGoals) needs.push(item("⚠","Objetivos","Há objetivos ativos, mas ainda não existem dias registados suficientes para avaliar a semana."));
+  if(projectDone>0||projectMinutes>0){
+    if(projectMinutes>=120||projectDone>0)good.push(item("✓","Projetos",`${projectDone} projeto(s) concluído(s) e ${Math.round(projectMinutes)} min de trabalho registado.`));
+    else needs.push(item("⚠","Projetos","Pouco tempo de execução registado nesta semana. Reserva blocos concretos para os projetos."));
+  }else needs.push(item("⚠","Projetos","Não há execução de projetos registada nesta semana."));
+  if(income>0){
+    if(savingRate>=20)good.push(item("✓","Finanças",`Taxa líquida de poupança de ${Math.round(savingRate)}%.`));
+    else needs.push(item("⚠","Finanças",`Taxa líquida de poupança de ${Math.round(savingRate)}%. Revê despesas e reservas antes de aumentar compromissos.`));
+  }else needs.push(item("⚠","Finanças","Não há receitas registadas no período, por isso a taxa de poupança não pode ser avaliada."));
+  if(!good.length)good.push(item("•","Ponto de partida","Esta semana serve como linha de base. A próxima revisão terá mais dados para comparar."));
+  const sortedNeeds=needs.slice(0,4),sortedGood=good.slice(0,4);
+  const strongest=actionRate>=80?"ações":goalRate>=80?"objetivos":(projectMinutes>=120||projectDone>0)?"projetos":(savingRate!==null&&savingRate>=20)?"finanças":"consistência geral";
+  const weakest=actionRate<80?"ações":goalRate<80&&goalTrackedDays?"objetivos":(projectMinutes<120&&projectDone===0)?"projetos":(savingRate!==null&&savingRate<20)?"finanças":"nenhuma área crítica";
+  document.getElementById("weeklyPDCAWeek").textContent=weeklyPDCARangeLabel(r);
+  document.getElementById("weeklyPDCAIntro").textContent=`Leitura automática dos últimos 7 dias. O NOSDE identifica padrões de execução e sugere um ajuste para a próxima semana.`;
+  document.getElementById("weeklyPDCAKPIs").innerHTML=[
+    ["Ações",evaluated.length?`${done}/${evaluated.length}`:"—"],
+    ["Objetivos",goalTrackedDays?`${Math.round(goalRate)}%`:"—"],
+    ["Projetos",`${Math.round(projectMinutes)} min`],
+    ["Finanças",income?`${Math.round(savingRate)}%`:"—"]
+  ].map(x=>`<div class="kpi"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join("");
+  document.getElementById("weeklyPDCAGood").innerHTML=sortedGood.join("");
+  document.getElementById("weeklyPDCANeeds").innerHTML=sortedNeeds.join("");
+  document.getElementById("weeklyPDCAAction").textContent=
+    weakest==="nenhuma área crítica"
+      ? `Mantém o sistema atual. A tua melhor área esta semana foi ${strongest}. Escolhe uma melhoria pequena para elevar o padrão na próxima semana.`
+      : `Foco principal: ${weakest}. Mantém ${strongest} como referência e escolhe uma ação concreta para corrigir a área mais fraca antes do próximo domingo.`;
+}
+function renderHome(){renderDailyMissions();renderStreak();renderMissionCountdown();renderGamificationOverview();renderMonthlyMedals();weeklyPDCARender();document.getElementById("kGoals").textContent=s.goals.filter(g=>!g.archived).length;document.getElementById("kActions").textContent=activeActions().filter(a=>a.date===today()).length;document.getElementById("kReminders").textContent=s.reminders.length;document.getElementById("kNotes").textContent=s.notes.length;document.getElementById("homeActions").innerHTML=activeActions().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,5).map(a=>`<div class="list-row"><div class="meta"><strong>${a.done?"☑":"☐"} ${esc(a.title)}</strong><small>${a.date} ${a.time||""}</small></div></div>`).join("")||`<div class="empty">Sem ações.</div>`;document.getElementById("homeReminders").innerHTML=s.reminders.filter(r=>r.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5).map(r=>`<div class="list-row"><div class="meta"><strong>🔔 ${esc(r.title)}</strong><small>${r.date} · ${r.time}</small></div></div>`).join("")||`<div class="empty">Sem lembretes.</div>`}
+function openGoalModal(){
+  modal("Novo objetivo",`<div class="form">
+    <label>Objetivo</label><input id="gTitle" placeholder="Ex.: Melhorar desenho técnico">
+    <label>Meta</label><input id="gTarget" type="number" min="1" value="100">
+    <label>Progresso inicial (%)</label><input id="gProgress" type="number" min="0" max="100" value="0">
+    <label>Usar datas?</label>
+    <select id="gHasDates" onchange="toggleGoalDatesForm()"><option value="no">Não, objetivo contínuo</option><option value="yes">Sim, definir início e fim</option></select>
+    <div id="goalDatesForm" style="display:none"><div class="row">
+      <div><label>Data de início</label><input id="gStart" type="date" value="${today()}"></div>
+      <div><label>Data de fim</label><input id="gEnd" type="date" value="${today()}"></div>
+    </div><small style="color:var(--muted);font-size:9px;line-height:1.5">O objetivo começa em 100%. Cada dia vale a mesma percentagem. Se um dia passar sem cumprimento, o peso desse dia é debitado. Ex.: 20 dias = 5% por dia; 1 dia não cumprido = 95%.</small></div>
+    <div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="createGoal()">Criar</button></div>
+  </div>`)
+}
+function toggleGoalDatesForm(){const yes=document.getElementById("gHasDates")?.value==="yes";const box=document.getElementById("goalDatesForm");if(box)box.style.display=yes?"block":"none"}
+function goalDateDiff(start,end){return Math.max(1,Math.round((new Date(end+"T12:00:00")-new Date(start+"T12:00:00"))/86400000)+1)}
+function datedGoalProgress(g){
+  if(!g.hasDates)return Number(g.progress)||0;
+  const total=goalDateDiff(g.startDate,g.endDate);
+  const dayWeight=100/total;
+  const missed=Object.values(g.dayStatus||{}).filter(v=>v==="missed").length;
+  // Objetivos com prazo começam em 100%. Cada dia não cumprido
+  // debita o peso desse dia da percentagem.
+  return Math.min(100,Math.max(0,100-(missed*dayWeight)));
+}
+function archivePastGoals(){
+  let changed=false,now=today();
+  s.goals.forEach(g=>{
+    if(g.archived)return;
+    if(g.hasDates){
+      g.dayStatus=g.dayStatus||{};
+      const yesterday=new Date(now+"T12:00:00");yesterday.setDate(yesterday.getDate()-1);
+      let cursor=new Date(g.startDate+"T12:00:00");
+      while(cursor<=yesterday && cursor<=new Date(g.endDate+"T12:00:00")){
+        const ds=cursor.getFullYear()+"-"+String(cursor.getMonth()+1).padStart(2,"0")+"-"+String(cursor.getDate()).padStart(2,"0");
+        if(!g.dayStatus[ds]){g.dayStatus[ds]="missed";changed=true}
+        cursor.setDate(cursor.getDate()+1)
+      }
+      g.progress=datedGoalProgress(g);
+      if(now>g.endDate){
+        const missed=Object.values(g.dayStatus||{}).filter(v=>v==="missed").length;
+        const total=goalDateDiff(g.startDate,g.endDate);
+        const completed=Object.values(g.dayStatus||{}).filter(v=>v==="completed").length;
+        g.archived=true;
+        g.outcome=(completed===total && missed===0)?"completed":"expired";
+        g.archivedAt=Date.now();
+        changed=true;
+      }
+    }else if(Number(g.progress)>=100){g.archived=true;g.outcome="completed";g.archivedAt=Date.now();changed=true}
+  });
+  if(changed){localStorage.setItem(KEY,JSON.stringify(s));if(typeof nosdeScheduleSync==="function")nosdeScheduleSync()}
+  return changed
+}
+function createGoal(){
+  const title=document.getElementById("gTitle").value.trim();if(!title)return;
+  const hasDates=document.getElementById("gHasDates").value==="yes",target=Number(document.getElementById("gTarget").value)||100,progress=Math.min(100,Math.max(0,Number(document.getElementById("gProgress").value)||0));
+  const start=document.getElementById("gStart")?.value||"",end=document.getElementById("gEnd")?.value||"";
+  if(hasDates&&(!start||!end||end<start)){alert("Indica uma data de início e uma data de fim válidas.");return}
+  const g={id:uid(),title,target,progress,hasDates,startDate:hasDates?start:null,endDate:hasDates?end:null,dayStatus:{},archived:false,outcome:null,createdAt:Date.now()};
+  if(hasDates){
+    const total=goalDateDiff(start,end),initialDays=Math.round(progress/100*total);let d=new Date(start+"T12:00:00");
+    for(let i=0;i<initialDays;i++){const ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");g.dayStatus[ds]="completed";d.setDate(d.getDate()+1)}
+    g.progress=datedGoalProgress(g)
+  }
+  s.goals.push(g);closeModal();save()
+}
+function renderGoals(){
+  archivePastGoals();const active=s.goals.filter(g=>!g.archived);
+  document.getElementById("goalsList").innerHTML=active.map(g=>{
+    const p=datedGoalProgress(g),totalDays=g.hasDates?goalDateDiff(g.startDate,g.endDate):0,dayWeight=g.hasDates?(100/totalDays):0,missedDays=g.hasDates?Object.values(g.dayStatus||{}).filter(v=>v==="missed").length:0,dates=g.hasDates?`<div class="goal-date">📅 ${g.startDate} → ${g.endDate} · ${totalDays} dias · cada dia vale ${dayWeight.toFixed(1).replace(".0","")}%</div>`:`<div class="goal-date">∞ Objetivo contínuo, sem prazo</div>`,status=g.hasDates?(g.dayStatus||{})[today()]:null;
+    const controls=g.hasDates?`<div class="goal-day"><button class="btn sm ${status==="completed"?"primary":""}" onclick="completeGoalDay('${g.id}')">${status==="completed"?"✓ Hoje concluído":"✓ Concluir hoje"}</button>${status==="completed"?`<button class="btn sm" onclick="failGoalDay('${g.id}')">Marcar como não cumprido</button>`:status==="missed"?`<button class="btn sm" onclick="completeGoalDay('${g.id}')">Corrigir: concluído</button>`:""}</div>`:`<div class="actions" style="margin-top:8px"><button class="btn sm" onclick="changeGoal('${g.id}',-10)">−10</button><button class="btn sm" onclick="changeGoal('${g.id}',10)">+10</button></div>`;
+    return `<div class="goal"><div class="goal-head"><strong>${esc(g.title)}</strong><button class="btn sm danger" onclick="deleteGoal('${g.id}')">×</button></div>${dates}<p>${p.toFixed(1).replace(".0","")}% de cumprimento${g.hasDates&&missedDays?` · ${missedDays} dia${missedDays===1?"":"s"} não cumprido${missedDays===1?"":"s"}`:""}</p><div class="progress"><i style="width:${p}%"></i></div>${controls}</div>`
+  }).join("")||`<div class="empty">Ainda não tens objetivos em curso.</div>`
+}
+function completeGoalDay(id){
+  const g=s.goals.find(x=>x.id===id&&!x.archived);if(!g||!g.hasDates)return;const ds=today();if(ds<g.startDate||ds>g.endDate)return;
+  g.dayStatus=g.dayStatus||{};g.dayStatus[ds]="completed";g.progress=datedGoalProgress(g);
+  registerGoalAdvance();save()
+}
+function failGoalDay(id){
+  const g=s.goals.find(x=>x.id===id&&!x.archived);if(!g||!g.hasDates)return;const ds=today();if(ds<g.startDate||ds>g.endDate)return;
+  g.dayStatus=g.dayStatus||{};g.dayStatus[ds]="missed";g.progress=datedGoalProgress(g);save();toast("Dia registado como não cumprido.")
+}
+function changeGoal(id,n){
+  const g=s.goals.find(x=>x.id===id&&!x.archived);if(g&&!g.hasDates){const before=Number(g.progress)||0;g.progress=Math.min(100,Math.max(0,before+n));if(g.progress>=100){g.archived=true;g.outcome="completed";g.archivedAt=Date.now()}if(g.progress!==before&&n>0)registerGoalAdvance();save()}
+}
 function deleteGoal(id){s.goals=s.goals.filter(x=>x.id!==id);save()}
 
 function setPomo(mode){pomoRunning=false;clearInterval(pomoTimer);pomoMode=mode;pomoRemaining=s.pomo[mode]*60;["focus","short","long"].forEach(x=>document.getElementById("tab"+x[0].toUpperCase()+x.slice(1)).classList.toggle("active",x===mode));renderPomo()}
@@ -1451,7 +1702,13 @@ function setAvatarOption(field,value){const a=s.profile.avatar;if(field==="outfi
 function resetAvatar(){if(!confirm("Redefinir o avatar para o modelo inicial?"))return;s.profile.avatar={...defaults().profile.avatar};renderAvatarEditor();toast("Avatar redefinido.")}
 function saveAvatar(){s.profile.avatar={...defaults().profile.avatar,...s.profile.avatar};save();closeModal();toast("Avatar guardado.")}
 
-function renderStats(){const xp=Number(s.gamification.xp)||0,league=getLeague(xp),streak=currentStreak(),mk=monthKey(),med=medalState(mk),prestige=getPrestige(xp);document.getElementById("statStreak").textContent=streak;document.getElementById("statXp").textContent=xp.toLocaleString("pt-PT");document.getElementById("statLeague").textContent=prestige?`${league.short} · P${prestige}`:league.short;document.getElementById("statMedals").textContent=Object.values(med.medals).filter(m=>m.unlocked).length;document.getElementById("statDone").textContent=s.actions.filter(x=>x.done).length;document.getElementById("statTotal").textContent=s.actions.length;document.getElementById("statGoals").textContent=s.goals.length;document.getElementById("statNotes").textContent=s.notes.length}
+function renderStats(){
+  archivePastActions();archivePastGoals();
+  const xp=Number(s.gamification.xp)||0,league=getLeague(xp),streak=currentStreak(),mk=monthKey(),med=medalState(mk),prestige=getPrestige(xp),evaluated=s.actions.filter(x=>x.archived),done=evaluated.filter(x=>x.outcome==="completed"||x.done),missed=evaluated.filter(x=>x.outcome==="missed"&&!x.done),activeGoals=s.goals.filter(g=>!g.archived),goalHist=s.goals.filter(g=>g.archived);
+  document.getElementById("statStreak").textContent=streak;document.getElementById("statXp").textContent=xp.toLocaleString("pt-PT");document.getElementById("statLeague").textContent=prestige?`${league.short} · P${prestige}`:league.short;document.getElementById("statMedals").textContent=Object.values(med.medals).filter(m=>m.unlocked).length;document.getElementById("statDone").textContent=done.length;document.getElementById("statMissed").textContent=missed.length;document.getElementById("statTotal").textContent=evaluated.length;document.getElementById("statGoals").textContent=activeGoals.length;document.getElementById("statNotes").textContent=s.notes.length;
+  const box=document.getElementById("actionHistoryStats");if(box)box.innerHTML=[...evaluated].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,100).map(a=>`<div class="list-row"><div class="meta"><strong>${a.outcome==="completed"?"☑":"☒"} ${esc(a.title)}</strong><small>${actionDateLabel(a.date)} · ${a.outcome==="completed"?"Concluída":"Não concluída"}${a.recurrence&&a.recurrence!=="none"?" · "+({daily:"diária",weekly:"semanal",monthly:"mensal"}[a.recurrence]||""):""}</small></div><span class="budget-status">${a.outcome==="completed"?"✓":"×"}</span></div>`).join("")||`<div class="empty">Ainda não há ações encerradas.</div>`;
+  const gb=document.getElementById("goalHistoryStats");if(gb)gb.innerHTML=[...goalHist].sort((a,b)=>(b.archivedAt||0)-(a.archivedAt||0)).slice(0,100).map(g=>`<div class="list-row"><div class="meta"><strong>${g.outcome==="completed"?"☑":"☒"} ${esc(g.title)}</strong><small>${g.hasDates?g.startDate+" → "+g.endDate+" · ":""}${g.outcome==="completed"?"Concluído":"Prazo encerrado sem concluir"} · ${Number(g.progress||0).toFixed(1).replace(".0","")}%</small></div><span class="budget-status">${g.outcome==="completed"?"✓":"×"}</span></div>`).join("")||`<div class="empty">Ainda não há objetivos encerrados.</div>`;
+}
 
 /* EVOLVE OS • Finanças integradas
    Motor único: receita mensal -> reservas -> disponível -> orçamento -> despesas -> relatórios -> património. */
@@ -1494,34 +1751,23 @@ function investmentAdds(month=currentMonthFinance()){return fin.investmentMoves.
 function investmentDebits(month=currentMonthFinance()){return fin.investmentMoves.filter(x=>monthKeyFromDate(x.date)===month&&x.kind==="debit").reduce((a,x)=>a+Number(x.amount||0),0)}
 function financeTotals(month=currentMonthFinance()){
   const income=monthlyIncomeValue(month),expense=totalExpenses(month),eAdd=emergencyAdds(month),eDebit=emergencyDebits(month),gAdd=goalAdds(month),gDebit=goalDebits(month),iAdd=investmentAdds(month),iDebit=investmentDebits(month);
-  const emergencyNet=Math.max(0,eAdd-eDebit);
-  const goalNet=Math.max(0,gAdd-gDebit);
-  const investmentNet=Math.max(0,iAdd-iDebit);
-  const reserved=Math.max(0,emergencyNet+goalNet+investmentNet);
+  const reserved=Math.max(0,eAdd-eDebit+gAdd-gDebit+iAdd-iDebit);
   const openingCash=Math.max(0,Number(fin.profile.cash)||0);
-  const budgetReserved=Math.max(0,budgetTotal(month));
-
-  // REGRA CENTRAL DO FLUXO FINANCEIRO:
-  // Todo dinheiro nasce como receita/disponível e, quando é alocado,
-  // sai do "Disponível para gastar / poupar".
-  // Fundo + Objetivos + Orçamento + Investimentos são reservas distintas.
-  // Uma despesa já coberta pelo orçamento não é abatida novamente do
-  // disponível livre, evitando dupla contagem.
-  const availableBeforeExpenses=Math.max(0,
-    openingCash + income
-    - emergencyNet
-    - goalNet
-    - investmentNet
-    - budgetReserved
-  );
-  const availableForSaving=availableBeforeExpenses;
-  const cash=availableForSaving;
+  // Receitas extra ficam disponíveis para gastar/poupar. A contribuição do Fundo
+  // é abatida primeiro à receita mensal e não consome automaticamente receitas extra.
+  const baseIncomeAvailable=Math.max(0,baseMonthlyIncomeValue(month)-eAdd+eDebit);
+  const extraIncomeAvailable=Math.max(0,extraIncomeForMonth(month));
+  const budgetReserved=budgetTotal(month);
+  const availableBeforeExpenses=Math.max(0,openingCash+baseIncomeAvailable+extraIncomeAvailable-gAdd-iAdd+gDebit+iDebit-budgetReserved);
+  // O orçamento é uma reserva: sai do dinheiro livre, mas não é descontado uma segunda vez quando uma despesa acontece.
+  const availableForSaving=Math.max(0,availableBeforeExpenses);
+  const cash=Math.max(0,availableBeforeExpenses);
   const emergencyTotal=fin.emergencyFund.contributions.reduce((a,x)=>a+(x.kind==="debit"?-1:1)*Number(x.amount||0),0);
   const goalTotal=fin.goals.reduce((a,g)=>a+Number(g.current||0),0);
   const invest=fin.investments.reduce((a,x)=>a+Number(x.current||0),0);
-  const saving=income>0?Math.max(0,Math.min(100,(emergencyNet+goalNet+investmentNet)/income*100)):0;
+  const saving=income>0?Math.max(0,Math.min(100,(eAdd+gAdd+iAdd)/income*100)):0;
   const net=cash+emergencyTotal+goalTotal+invest;
-  return {income,expense,emergencyAdded:eAdd,emergencyDebited:eDebit,emergencyTotal,goalTotal,savingsAdded:gAdd,savingsDebited:gDebit,investmentAdded:iAdd,investmentDebited:iDebit,budgetReserved,reserved,availableBeforeExpenses,availableForSaving,cash,invest,saving,net,recordedIncome:income,incomeBase:baseMonthlyIncomeValue(month)};
+  return {income,expense,emergencyAdded:eAdd,emergencyDebited:eDebit,emergencyTotal,goalTotal,savingsAdded:gAdd,savingsDebited:gDebit,investmentAdded:iAdd,investmentDebited:iDebit,budgetReserved,reserved,availableBeforeExpenses,availableForSaving,cash,invest,saving,net,recordedIncome:income,incomeBase:0};
 }
 function saveFinance(){localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderDailyMissions?.();renderStreak?.();nosdeScheduleSync()}
 function monthlyRevenueRegistered(month=currentMonthFinance()){return !!(fin.monthlyIncome[month]?.registered)}
@@ -1627,7 +1873,7 @@ function renderEmergencyFund(t){
   const show2=v=>patrimonyVisible?money2(v):financeHiddenMoney2();
   el.innerHTML=`<div class="finance-detail-grid"><div class="finance-detail"><small>Saldo atual</small><b class="positive">${show(total)}</b></div><div class="finance-detail"><small>Meta</small><b>${target?show(target):"Não definida"}</b></div><div class="finance-detail"><small>Meta atingida</small><b>${target?pct.toFixed(1)+"%":"—"}</b></div><div class="finance-detail"><small>Acumulado neste mês</small><b class="positive">${show(month)}</b></div></div>${target?`<div class="emergency-progress"><i style="width:${pct}%"></i></div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="addEmergencyMoney()">＋ Adicionar dinheiro</button><button class="btn sm danger" onclick="debitEmergencyMoney()">− Debitar</button></div><div class="panel-head" style="margin-top:15px"><h2 style="font-size:14px;margin:0">Histórico do Fundo</h2></div><div class="emergency-history">${history.length?history.map(x=>{const debit=x.kind==="debit";return `<div class="finance-item"><span>${fullDateFinance(x.date)} <small style="color:var(--muted)">· ${esc(x.source|| (debit?"Débito":"Contribuição"))}</small></span><b class="${debit?'negative':'positive'}">${debit?'−':'＋'} ${show2(x.amount)}</b></div>`}).join(""):"<div class='finance-empty'>Ainda não existem movimentos no fundo.</div>"}</div>`;
 }
-function addEmergencyMoney(){const t=financeTotals(),available=t.availableForSaving;modal("Adicionar dinheiro ao Fundo de Emergência",`<div class="form"><label>Valor (Kz)</label><input id="emergencyAddAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Disponível real para reservar: ${money(available)}. O valor adicionado será debitado do “Disponível para gastar / poupar”.</small><label>Origem</label><input id="emergencyAddSource" placeholder="Poupança adicional"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmAddEmergencyMoney()">Adicionar</button></div></div>`)}
+function addEmergencyMoney(){const t=financeTotals(),available=t.availableForSaving;modal("Adicionar dinheiro ao Fundo de Emergência",`<div class="form"><label>Valor (Kz)</label><input id="emergencyAddAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Disponível real para reservar: ${money(available)}.</small><label>Origem</label><input id="emergencyAddSource" placeholder="Poupança adicional"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmAddEmergencyMoney()">Adicionar</button></div></div>`)}
 function confirmAddEmergencyMoney(){const amount=Number(document.getElementById("emergencyAddAmount")?.value),source=document.getElementById("emergencyAddSource")?.value.trim()||"Adição manual",available=financeTotals().availableForSaving;if(!Number.isFinite(amount)||amount<=0){alert("Indica um valor maior que zero.");return}if(amount>available+0.001){alert(`O valor excede o disponível real (${money(available)}). Regista primeiro a outra receita ou atualiza o saldo disponível no perfil financeiro.`);return}fin.emergencyFund.contributions.push({id:uid(),kind:"add",amount,date:today(),source});closeModal();saveFinance();toast(money(amount)+" adicionados ao Fundo de Emergência.")}
 function debitEmergencyMoney(){const current=Math.max(0,Number(financeTotals().emergencyTotal)||0);modal("Debitar do Fundo de Emergência",`<div class="form"><label>Valor (Kz)</label><input id="emergencyDebitAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Saldo do fundo: ${money(current)}.</small><label>Motivo</label><input id="emergencyDebitSource" placeholder="Emergência"><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmDebitEmergencyMoney()">Debitar</button></div></div>`)}
 function confirmDebitEmergencyMoney(){const amount=Number(document.getElementById("emergencyDebitAmount")?.value),source=document.getElementById("emergencyDebitSource")?.value.trim()||"Débito por emergência",current=Math.max(0,Number(financeTotals().emergencyTotal)||0);if(!isFinite(amount)||amount<=0||amount>current){alert("O débito não pode exceder o saldo do fundo.");return}fin.emergencyFund.contributions.push({id:uid(),kind:"debit",amount,date:today(),source});closeModal();saveFinance();toast(money(amount)+" debitados do Fundo de Emergência.")}
@@ -1635,11 +1881,11 @@ function emergencyTargetModal(){const current=Number(fin.emergencyFund.target)||
 function saveEmergencyTarget(){const v=Number(document.getElementById("emergencyTarget")?.value);if(!isFinite(v)||v<0){alert("Indica uma meta válida.");return}fin.emergencyFund.target=v;closeModal();saveFinance();toast("Meta do Fundo de Emergência guardada.")}
 function financeBudgetModal(){
   if(!monthlyRevenueRegistered()){financeIncomeModal(true);return}if(!emergencyPlanComplete()){financeEmergencyModal(true);return}
-  const old=budgetForMonth(),available=financeTotals().availableForSaving+(old?budgetTotal():0),cats=FIN_CATEGORIES.map(c=>`<div class="field"><label>${esc(c)}</label><input class="budget-input" data-category="${esc(c)}" type="number" min="0" step="0.01" value="${Number(old?.categories?.[c]||0)}"></div>`).join("");
-  modal("Orçamento mensal · "+currentMonthFinance(),`<div class="form"><small style="color:var(--muted)">Disponível para alocação: <b>${money(available)}</b>. O orçamento é uma reserva: o total reservado é debitado do “Disponível para gastar / poupar”.</small><div class="formgrid" style="max-height:48vh;overflow:auto;padding-right:5px">${cats}</div><div id="budgetLiveTotal" class="checkpoint-box">Total planejado: 0 Kz</div><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveMonthlyBudget()">Guardar orçamento</button></div></div>`);
+  const old=budgetForMonth(),available=financeTotals().availableBeforeExpenses+(old?budgetTotal():0),cats=FIN_CATEGORIES.map(c=>`<div class="field"><label>${esc(c)}</label><input class="budget-input" data-category="${esc(c)}" type="number" min="0" step="0.01" value="${Number(old?.categories?.[c]||0)}"></div>`).join("");
+  modal("Orçamento mensal · "+currentMonthFinance(),`<div class="form"><small style="color:var(--muted)">Disponível para alocação: <b>${money(available)}</b>. O orçamento é uma alocação planejada, não uma receita.</small><div class="formgrid" style="max-height:48vh;overflow:auto;padding-right:5px">${cats}</div><div id="budgetLiveTotal" class="checkpoint-box">Total planejado: 0 Kz</div><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveMonthlyBudget()">Guardar orçamento</button></div></div>`);
   const inputs=[...document.querySelectorAll(".budget-input")];const update=()=>{const total=inputs.reduce((a,x)=>a+Math.max(0,Number(x.value)||0),0);document.getElementById("budgetLiveTotal").innerHTML=`Total planejado: <b>${money(total)}</b> · Não orçamentado: <b>${money(Math.max(0,available-total))}</b>`;};inputs.forEach(x=>x.addEventListener("input",update));update();
 }
-function saveMonthlyBudget(){const month=currentMonthFinance(),old=budgetForMonth(),available=financeTotals().availableForSaving+(old?budgetTotal():0),categories={};document.querySelectorAll(".budget-input").forEach(i=>categories[i.dataset.category]=Math.max(0,Number(i.value)||0));const total=FIN_CATEGORIES.reduce((a,c)=>a+categories[c],0);if(total>available+0.001){alert("O orçamento não pode ser superior ao dinheiro disponível para gastar / poupar.");return}if(old)old.categories=categories;else fin.budgets.push({id:uid(),month,categories,createdAt:new Date().toISOString()});closeModal();saveFinance();toast("Orçamento mensal guardado.")}
+function saveMonthlyBudget(){const month=currentMonthFinance(),old=budgetForMonth(),available=financeTotals().availableBeforeExpenses+(old?budgetTotal():0),categories={};document.querySelectorAll(".budget-input").forEach(i=>categories[i.dataset.category]=Math.max(0,Number(i.value)||0));const total=FIN_CATEGORIES.reduce((a,c)=>a+categories[c],0);if(total>available+0.001){alert("O orçamento não pode ser superior ao dinheiro disponível para gastar / poupar.");return}if(old)old.categories=categories;else fin.budgets.push({id:uid(),month,categories,createdAt:new Date().toISOString()});closeModal();saveFinance();toast("Orçamento mensal guardado.")}
 function renderFinanceBudget(t){
   const el=document.getElementById("financeBudget");
   if(!el)return;
@@ -1661,12 +1907,12 @@ function markFinanceNoRecord(){const d=today();fin.dailyRecords[d]={status:"no-r
 function setFinanceSort(mode){financeSort=mode;renderFinanceReports()}
 function renderFinanceReports(){const container=document.getElementById("financeCategoryReports"),sortAmount=document.getElementById("sortAmountBtn"),sortDate=document.getElementById("sortDateBtn");if(sortAmount)sortAmount.classList.toggle("active",financeSort==='amount');if(sortDate)sortDate.classList.toggle("active",financeSort==='date');if(!container)return;let cats=FIN_CATEGORIES.map(c=>({c,total:categoryExpenses(c),items:monthMovesFinance().filter(x=>x.kind==='expense'&&x.category===c)})).filter(x=>x.total>0);cats.sort(financeSort==='date'?(a,b)=>String(b.items.at(-1)?.date||'').localeCompare(String(a.items.at(-1)?.date||'')):(a,b)=>b.total-a.total);container.innerHTML=cats.length?cats.map(x=>{const avg=x.items.length?x.total/x.items.length:0;const items=[...x.items].sort((a,b)=>financeSort==='date'?String(b.date).localeCompare(String(a.date)):Number(b.amount)-Number(a.amount));return `<div class="finance-category"><div class="finance-category-head"><b>${esc(x.c)}</b><b>${money2(x.total)}</b></div><div style="color:var(--muted);font-size:10px;margin-top:4px">Total: ${money2(x.total)} · Average: ${money2(avg)}</div><div style="margin-top:8px">${items.map(i=>`<div class="finance-item"><span>${esc(i.name)} <small style="color:var(--muted)">· ${fullDateFinance(i.date)}</small></span><b>${money2(i.amount)}</b></div>`).join('')}</div></div>`}).join(''):'<div class="finance-empty">Ainda não existem despesas neste mês.</div>'}
 function renderFinanceCharts(){const el=document.getElementById("financeDailyChart");if(!el)return;const byDay={};monthMovesFinance().filter(x=>x.kind==='expense').forEach(x=>byDay[x.date]=(byDay[x.date]||0)+Number(x.amount||0));const days=Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0])),max=Math.max(1,...days.map(x=>x[1]));el.innerHTML=days.length?days.map(([d,v])=>`<div class="daily-bar"><span>${d.slice(8,10)}/${d.slice(5,7)}</span><div class="track"><i style="width:${v/max*100}%"></i></div><b>${money2(v)}</b></div>`).join(''):'<div class="finance-empty">Regista despesas para ver a evolução diária.</div>'}
-function financeGoalModal(){modal("Novo objetivo financeiro",`<div class="form"><label>Objetivo</label><input id="gName" placeholder="Ex.: Comprar roupas e sapatos"><label>Meta (Kz)</label><input id="gTarget" type="number" min="0.01"><label>Valor actual a transferir (Kz)</label><input id="gCurrent" type="number" min="0" step="0.01"><label>Prazo</label><input id="gDue" type="date"><small style="color:var(--muted)">O valor inicial será retirado do “Disponível para gastar / poupar”. Não cria dinheiro.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="addFinanceGoal()">Guardar objetivo</button></div></div>`)}
+function financeGoalModal(){modal("Novo objetivo financeiro",`<div class="form"><label>Objetivo</label><input id="gName" placeholder="Ex.: Comprar roupas e sapatos"><label>Meta (Kz)</label><input id="gTarget" type="number" min="0.01"><label>Valor actual a transferir (Kz)</label><input id="gCurrent" type="number" min="0" step="0.01"><label>Prazo</label><input id="gDue" type="date"><small style="color:var(--muted)">O valor inicial será retirado do disponível real. Não cria dinheiro.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="addFinanceGoal()">Guardar objetivo</button></div></div>`)}
 function addFinanceGoal(){const n=document.getElementById("gName")?.value.trim(),t=Number(document.getElementById("gTarget")?.value),c=Number(document.getElementById("gCurrent")?.value)||0,d=document.getElementById("gDue")?.value;if(!n||!isFinite(t)||t<=0||c<0){alert("Indica nome, meta e valor válidos.");return}if(c>financeTotals().availableForSaving){alert(`Saldo insuficiente. Você possui apenas ${money(financeTotals().availableForSaving)} disponíveis.`);return}const id=uid();fin.goals.push({id,name:n,target:t,current:c,due:d});if(c>0)fin.goalMoves.push({id:uid(),goalId:id,kind:"add",amount:c,date:today(),initial:true});closeModal();saveFinance();toast("Objetivo financeiro criado.")}
 function addGoalSaving(i){const g=fin.goals[i];if(!g)return;let v=prompt("Quanto queres poupar neste objetivo? (Kz)","0");if(v===null)return;v=Number(v);if(!isFinite(v)||v<=0||v>financeTotals().availableForSaving){alert("O valor excede o disponível real.");return}g.current=(Number(g.current)||0)+v;fin.goalMoves.push({id:uid(),goalId:g.id,kind:"add",amount:v,date:today()});saveFinance();toast(money(v)+" adicionados a "+g.name+".")}
 function debitGoal(i){const g=fin.goals[i],cur=Number(g?.current)||0;if(!g||cur<=0){alert("Este objetivo não tem saldo.");return}let v=prompt("Quanto queres debitar deste objetivo? (Kz)","0");if(v===null)return;v=Number(v);if(!isFinite(v)||v<=0||v>cur){alert("O débito não pode exceder o saldo do objetivo.");return}g.current=cur-v;fin.goalMoves.push({id:uid(),goalId:g.id,kind:"debit",amount:v,date:today()});saveFinance();toast(money(v)+" debitados de "+g.name+".")}
 function renderFinanceGoals(){const el=document.getElementById("financeGoals");if(!el)return;if(!fin.goals.length){el.innerHTML='<div class="finance-empty">Ainda não tens objetivos financeiros.</div>';return}el.innerHTML=fin.goals.map((g,i)=>{const cur=Number(g.current)||0,tgt=Number(g.target)||0,pct=tgt?Math.min(100,cur/tgt*100):0;return `<div class="goal"><div class="goalhead"><div><b>${esc(g.name)}</b><div style="color:var(--muted);font-size:10px;margin-top:4px">${g.due?"Prazo: "+fullDateFinance(g.due):"Sem prazo"}</div></div><b>${pct.toFixed(0)}%</b></div><div class="goalbar"><i style="width:${pct}%"></i></div><div class="goalmeta"><span>${money(cur)}</span><span>${money(tgt)}</span></div><div class="actions" style="margin-top:10px"><button class="btn sm" onclick="addGoalSaving(${i})">＋ Poupar</button><button class="btn sm danger" onclick="debitGoal(${i})">− Debitar</button></div></div>`}).join("")}
-function financeInvestmentModal(){const available=financeTotals().availableForSaving;modal("Transferir para investimento",`<div class="form"><label>Investimento</label><input id="invName" placeholder="Ex.: ETF / Carteira"><label>Valor transferido (Kz)</label><input id="invAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Disponível: ${money(available)}. O capital transferido será debitado do “Disponível para gastar / poupar”.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="addFinanceInvestment()">Transferir</button></div></div>`)}
+function financeInvestmentModal(){const available=financeTotals().availableForSaving;modal("Transferir para investimento",`<div class="form"><label>Investimento</label><input id="invName" placeholder="Ex.: ETF / Carteira"><label>Valor transferido (Kz)</label><input id="invAmount" type="number" min="0.01" step="0.01"><small style="color:var(--muted)">Disponível: ${money(available)}. O capital transferido sai do disponível.</small><div class="actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="addFinanceInvestment()">Transferir</button></div></div>`)}
 function addFinanceInvestment(){const n=document.getElementById("invName")?.value.trim(),a=Number(document.getElementById("invAmount")?.value);if(!n||!isFinite(a)||a<=0||a>financeTotals().availableForSaving){alert("Indica um investimento e um valor dentro do disponível.");return}const id=uid();fin.investments.push({id,name:n,current:a,contributed:a});fin.investmentMoves.push({id:uid(),investmentId:id,kind:"add",amount:a,date:today()});closeModal();saveFinance();toast(money(a)+" transferidos para o investimento.")}
 function updateInvestmentValue(i){const inv=fin.investments[i];if(!inv)return;let v=prompt("Valor atual do investimento (Kz)",String(inv.current||0));if(v===null)return;v=Number(v);if(!isFinite(v)||v<0){alert("Indica um valor válido.");return}inv.current=v;inv.updatedAt=new Date().toISOString();saveFinance();toast("Valor atual do investimento atualizado.")}
 function renderFinanceInvestments(){const el=document.getElementById("financeInvestments");if(!el)return;if(!fin.investments.length){el.innerHTML='<div class="finance-empty">Nenhum investimento registado.</div>';return}el.innerHTML=fin.investments.map((x,i)=>`<div class="finance-item"><span>📈 ${esc(x.name)} <small style="color:var(--muted)">· Valor atual</small></span><span style="display:flex;gap:8px;align-items:center"><b class="positive">${money(x.current)}</b><button class="btn sm" onclick="updateInvestmentValue(${i})">Atualizar</button></span></div>`).join("")}
