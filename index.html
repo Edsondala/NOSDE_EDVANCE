@@ -265,6 +265,8 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 .auth-user{position:fixed;right:18px;top:58px;z-index:79;display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel);font-size:9px;color:var(--muted)}
 .auth-user button{border:0;background:transparent;color:var(--red);font-size:9px;font-weight:800;cursor:pointer}
 .auth-loading{opacity:.65;pointer-events:none}
+
+.action-title{display:inline-flex;align-items:center;gap:5px}.action-title.action-completed{font-weight:700}.action-completed{color:inherit}
 </style>
 </head>
 <body>
@@ -860,24 +862,33 @@ function createAction(){
  s.actions.push({id:uid(),title,date:start,time,done:false,archived:false,occurrence:1,recurrence:repeat,recurrenceGroup:groupId,repeatUntil:recurring?repeatUntil:null});
  closeModal();save();toast(recurring?"Ação criada. A próxima ocorrência surgirá após cada dia encerrado enquanto a repetição estiver ativa.":"Ação criada.")
 }
-function ensureRecurringNextOccurrence(a){
+function ensureRecurringOccurrencesThrough(a,targetDate){
  if(!a.recurrence||a.recurrence==="none"||!a.repeatUntil)return false;
  let changed=false,next=nextRecurringDate(a.date,a.recurrence),occ=Number(a.occurrence||1)+1,guard=0;
- while(next&&next<a.repeatUntil&&guard<500){
+ while(next&&next<=targetDate&&next<a.repeatUntil&&guard<500){
    const exists=s.actions.some(x=>x.recurrenceGroup===a.recurrenceGroup&&x.date===next);
-   if(!exists){s.actions.push({id:uid(),title:a.title,date:next,time:a.time||"08:00",done:false,archived:false,occurrence:occ,recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,repeatUntil:a.repeatUntil});changed=true;break}
+   if(!exists){
+     const missed=next<today();
+     s.actions.push({id:uid(),title:a.title,date:next,time:a.time||"08:00",done:false,archived:missed,occurrence:occ,recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,repeatUntil:a.repeatUntil,outcome:missed?"missed":null,archivedAt:missed?Date.now():null});
+     changed=true;
+   }
    next=nextRecurringDate(next,a.recurrence);occ++;guard++;
  }
  return changed;
 }
-function archivePastActions(){
+function ensureRecurringCatchUp(){
  const t=today();let changed=false;
- // Cada ocorrência representa apenas um dia. Ao terminar esse dia, ela é
- // definitivamente avaliada e, se houver repetição, nasce a próxima ocorrência.
+ // Garante que uma repetição não perde dias só porque o utilizador não abriu o site.
+ const recurring=[...s.actions].filter(a=>a.recurrence&&a.recurrence!=="none"&&!a.archived&&a.repeatUntil);
+ recurring.forEach(a=>{if(ensureRecurringOccurrencesThrough(a,t))changed=true});
+ return changed;
+}
+function archivePastActions(){
+ const t=today();let changed=ensureRecurringCatchUp();
  const past=[...s.actions].filter(a=>a.date<t&&!a.archived).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
  past.forEach(a=>{
    a.archived=true;a.outcome=a.done?"completed":"missed";a.archivedAt=Date.now();changed=true;
-   if(ensureRecurringNextOccurrence(a))changed=true;
+   if(a.recurrence&&a.recurrence!=="none"&&a.repeatUntil&&ensureRecurringOccurrencesThrough(a,t))changed=true;
  });
  if(changed){localStorage.setItem(KEY,JSON.stringify(s));if(typeof nosdeScheduleSync==="function")nosdeScheduleSync()}
  return changed;
@@ -900,7 +911,7 @@ function renderSelected(){document.getElementById("selectedDateTitle").textConte
 function changeMonth(n){viewDate.setMonth(viewDate.getMonth()+n);renderCalendar()}
 function goToday(){const d=new Date();viewDate=new Date(d.getFullYear(),d.getMonth(),1);selected=today();renderCalendar();renderSelected()}
 
-function renderActions(){archivePastActions();const arr=activeActions().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));document.getElementById("actionsList").innerHTML=arr.map(a=>`<div class="list-row"><div class="meta"><strong>☐ ${esc(a.title)}</strong><small>${actionDateLabel(a.date)} · ${a.time||""} · ${a.recurrence&&a.recurrence!=="none"?({daily:"repetição diária",weekly:"repetição semanal",monthly:"repetição mensal"}[a.recurrence]||""):"ação de um dia"}</small></div><div class="actions"><button class="btn sm" onclick="toggleAction('${a.id}')">Concluir</button><button class="btn sm danger" onclick="deleteAction('${a.id}')">×</button></div></div>`).join("")||`<div class="empty">Não tens ações ativas. As ações que terminaram o dia foram encaminhadas para as Estatísticas.</div>`}
+function renderActions(){archivePastActions();const arr=activeActions().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));document.getElementById("actionsList").innerHTML=arr.map(a=>{const check=a.done?"☑":"☐";return `<div class="list-row"><div class="meta"><strong class="action-title ${a.done?"action-completed":""}">${check} ${esc(a.title)}</strong><small>${actionDateLabel(a.date)} · ${a.time||""} · ${a.recurrence&&a.recurrence!=="none"?({daily:"repetição diária",weekly:"repetição semanal",monthly:"repetição mensal"}[a.recurrence]||""):"ação de um dia"}</small></div><div class="actions"><button class="btn sm ${a.done?"primary":""}" onclick="toggleAction('${a.id}')">${a.done?"Reabrir":"Concluir"}</button><button class="btn sm danger" onclick="deleteAction('${a.id}')">×</button></div></div>`}).join("")||`<div class="empty">Não tens ações ativas. As ações que terminaram o dia foram encaminhadas para as Estatísticas.</div>`}
 
 function renderReminders(){document.getElementById("remindersList").innerHTML=s.reminders.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>`<div class="reminder-card"><div style="display:flex;justify-content:space-between"><strong>${esc(r.title)}</strong><button class="btn sm danger" onclick="deleteReminder('${r.id}')">×</button></div><small>${r.date} · ${r.time} · ${r.alerts.map(a=>a===0?"no dia":a+" dias antes").join(" · ")}</small><p style="font-size:10px;color:var(--muted)">${esc(r.notes||"")}</p></div>`).join("")||`<div class="empty">Ainda não tens lembretes.</div>`}
 
@@ -1134,7 +1145,7 @@ function weeklyPDCARender(){
   const projectMinutes=projects.reduce((sum,p)=>
     sum+(p.workLog||[]).filter(x=>inRange(x.date)).reduce((a,x)=>a+Number(x.minutes||0),0),0);
   const projectChanges=projects.reduce((sum,p)=>
-    sum+(p.alterations||[]).filter(x=>x.date?inRange(x.date):false).length,0);
+    sum+(p.alterations||[]).filter(x=>{const d=x.date||(x.at?String(x.at).slice(0,10):'');return inRange(d)}).length,0);
   const completedProjects=projects.filter(p=>p.status==="done");
   const projectAccuracy=completedProjects.length?
     completedProjects.reduce((sum,p)=>sum+projectAccuracySafe(p),0)/completedProjects.length:null;
@@ -1483,6 +1494,12 @@ function renderRiskDescription(){
   }[risk];
   const el=document.getElementById("riskDescription"); if(el) el.innerHTML="<b>"+esc(risk)+"</b><br>"+esc(desc);
 }
+function switchProfileTab(tab){
+  document.querySelectorAll('[data-profile-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.profileTab===tab));
+  document.getElementById('profilePersonal')?.classList.toggle('active',tab==='personal');
+  document.getElementById('profileFinancial')?.classList.toggle('active',tab==='financial');
+}
+
 function saveProfile(){
   s.profile=s.profile||{};
   s.profile.name=document.getElementById("profileName")?.value.trim()||"";
@@ -2056,7 +2073,7 @@ function projectSwitchTab(i,t){projectDetailTab=t;projectOpenProject(i,t)}
 function projectAddStep(i){let el=document.getElementById('newStep'),v=el.value.trim();if(!v)return;projectState.projects[i].checklist.push({text:v,done:false});el.value='';projectSave();projectOpenProject(i,'checklist')}
 function projectToggleStep(i,j){const item=projectState.projects[i].checklist[j];item.done=!item.done;item.completedAt=item.done?new Date().toISOString():null;projectState.projects[i].lastActivityAt=new Date().toISOString();projectSave();projectOpenProject(i,'checklist')}
 function projectDeleteStep(i,j){projectState.projects[i].checklist.splice(j,1);projectSave();projectOpenProject(i,'checklist')}
-function projectAddAlteration(i){let d=document.getElementById('altText').value.trim(),m=+document.getElementById('altMin').value,t=document.getElementById('altType').value;if(!d||!m)return alert('Indica a alteração e o tempo gasto.');projectState.projects[i].alterations.push({description:d,minutes:m,type:t,at:new Date().toISOString()});projectSave();projectOpenProject(i,'history')}
+function projectAddAlteration(i){let d=document.getElementById('altText').value.trim(),m=+document.getElementById('altMin').value,t=document.getElementById('altType').value;if(!d||!m)return alert('Indica a alteração e o tempo gasto.');const now=new Date();projectState.projects[i].alterations.push({description:d,minutes:m,type:t,date:dateKey(now),at:now.toISOString()});projectState.projects[i].lastActivityAt=now.toISOString();projectSave();projectOpenProject(i,'history')}
 function projectRemoveAlteration(i,j){projectState.projects[i].alterations.splice(j,1);projectSave();projectOpenProject(i,'history')}
 
 function projectSaveDetails(i){
