@@ -354,10 +354,10 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 
   <div class="streak-card">
     <div class="streak-top">
-      <div><div class="streak-badge">🔥 Sociedade da Chama Acesa</div><div id="streakNumber" class="streak-number">0 dias de ofensiva</div><div class="streak-label">Mantém o ritmo. Um dia completo protege a tua ofensiva.</div></div>
+      <div><div class="streak-badge">🔥 Sociedade da Chama Acesa</div><div id="streakNumber" class="streak-number">0 dias de ofensiva</div><div class="streak-label">Mantém o ritmo. Duas missões concluídas protegem a tua ofensiva.</div></div>
       <div class="flame-icon">🔥</div>
     </div>
-    <div class="streak-meta"><span>Próximo marco:</span><strong id="nextMilestone">7 dias</strong><span>•</span><span id="streakHint">Completa as 3 missões de hoje.</span></div>
+    <div class="streak-meta"><span>Próximo marco:</span><strong id="nextMilestone">7 dias</strong><span>•</span><span id="streakHint">Completa pelo menos 2 das 3 missões de hoje.</span></div>
     <div class="streak-progress"><i id="streakProgress"></i></div>
     <div class="streak-foot"><span id="streakProgressText">0 / 7 dias</span><span>Recorde: <strong id="bestStreak">0 dias</strong></span></div>
     <div id="streakMilestones" class="streak-milestones"></div>
@@ -366,7 +366,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
   <div class="daily-head"><h2>Missões do dia</h2><div class="daily-clock">◷ <span id="missionCountdown">--</span></div></div>
   <div class="missions-card">
     <div id="dailyMissions"></div>
-    <div class="daily-summary"><span><strong id="missionsDone">0/3</strong> missões concluídas</span><span class="xp-pill">+<strong id="dailyXp">0</strong> XP hoje</span></div>
+    <div class="daily-summary"><span><strong id="missionsDone">0/3</strong> missões concluídas</span><span class="xp-pill">+<strong id="dailyXp">0</strong> XP hoje</span></div><div id="offensiveRuleText" style="font-size:9px;color:var(--muted);margin-top:6px">🔥 Ofensiva ativa com pelo menos 2 de 3 missões concluídas.</div>
   </div>
 
   <div class="gamification-overview">
@@ -1007,6 +1007,8 @@ function missionProgress(m,ds=today()){
 }
 function missionDone(m,ds=today()){return missionProgress(m,ds)>=m.target}
 function isDayComplete(ds=today()){return ensureDailyMissions(ds).every(m=>missionDone(m,ds))}
+function completedMissionCount(ds=today()){return ensureDailyMissions(ds).filter(m=>missionDone(m,ds)).length}
+function isOffensiveDay(ds=today()){return completedMissionCount(ds)>=2}
 function monthCompletedDays(mk=monthKey()){
   const hist=s.gamification.missionHistory||{};
   return Object.keys(hist).filter(k=>k.slice(0,7)===mk&&hist[k]?._dayComplete===true).length;
@@ -1029,8 +1031,8 @@ function medalState(mk=monthKey()){
 }
 function currentStreak(){
   let cur=0,d=new Date();
-  if(!isDayComplete(dateKey(d)))d.setDate(d.getDate()-1);
-  while(isDayComplete(dateKey(d))){cur++;d.setDate(d.getDate()-1);if(cur>10000)break;}
+  if(!isOffensiveDay(dateKey(d)))d.setDate(d.getDate()-1);
+  while(isOffensiveDay(dateKey(d))){cur++;d.setDate(d.getDate()-1);if(cur>10000)break;}
   return cur;
 }
 function updateStreak(){const cur=currentStreak();s.gamification.bestStreak=Math.max(Number(s.gamification.bestStreak)||0,cur);return cur}
@@ -1040,7 +1042,8 @@ function renderStreak(){
   document.getElementById("streakNumber").textContent=cur+" dias de ofensiva";
   document.getElementById("bestStreak").textContent=(s.gamification.bestStreak||0)+" dias";
   document.getElementById("nextMilestone").textContent=next+" dias";
-  document.getElementById("streakHint").textContent=isDayComplete(today())?"Dia protegido. A ofensiva está acesa.":"Completa as 3 missões de hoje.";
+  const doneToday=completedMissionCount(today());
+  document.getElementById("streakHint").textContent=isOffensiveDay(today())?`Ofensiva ativa: ${doneToday}/3 missões concluídas.`:`Completa pelo menos 2 das 3 missões de hoje para ativar a ofensiva.`;
   const prev=milestones.filter(x=>x<=cur).pop()||0,span=Math.max(1,next-prev),pct=Math.max(0,Math.min(100,((cur-prev)/span)*100));
   document.getElementById("streakProgress").style.width=pct+"%";document.getElementById("streakProgressText").textContent=cur+" / "+next+" dias";
   document.getElementById("streakMilestones").innerHTML=milestones.map(x=>`<div class="milestone ${cur>=x?"reached":""} ${cur+1===x?"current":""}"><span>${x}</span></div>`).join("");
@@ -1050,7 +1053,9 @@ function completeMissionRewards(ds=today(),silent=false){
   const missions=ensureDailyMissions(ds),hist=s.gamification.missionHistory||{};hist[ds]=hist[ds]||{};const earned=[];
   missions.forEach(m=>{if(missionDone(m,ds)&&!hist[ds][m.id]){hist[ds][m.id]=true;addXp(m.reward);earned.push(m)}});
   const all=missions.every(m=>missionDone(m,ds));
-  if(all&&!hist[ds]._dayComplete){hist[ds]._dayComplete=true;updateStreak();}
+  const offensive=missions.filter(m=>missionDone(m,ds)).length>=2;
+  if(offensive&&!hist[ds]._offensiveActive){hist[ds]._offensiveActive=true;updateStreak();}
+  if(all&&!hist[ds]._dayComplete){hist[ds]._dayComplete=true;}
   s.gamification.missionHistory=hist;
   if(!silent)earned.forEach(m=>notifyGamification("✓ Missão concluída",`+${m.reward} XP`));
   return earned;
@@ -1059,7 +1064,7 @@ function renderDailyMissions(){
   const ds=today(),ms=ensureDailyMissions(ds);completeMissionRewards(ds,true);localStorage.setItem(KEY,JSON.stringify(s));nosdeScheduleSync();
   let totalXp=0,done=0;
   document.getElementById("dailyMissions").innerHTML=ms.map(m=>{const p=missionProgress(m,ds),ok=p>=m.target;if(ok)done++;totalXp+=ok?m.reward:0;const pct=Math.min(100,(p/m.target)*100);const label=m.type==="focus"||m.type==="project-time"?`${p} / ${m.target} min`:m.type==="project-checklist"?`${p} / ${m.target} itens`:`${p} / ${m.target}`;const action=m.type==="action"?`<button class="btn sm" onclick="view('actions')">Abrir ações</button>`:m.type==="focus"?`<button class="btn sm" onclick="view('pomodoro')">Começar foco</button>`:m.type.startsWith("project")?`<button class="btn sm" onclick="view('board')">Abrir projetos</button>`:m.type==="goal"?`<button class="btn sm" onclick="view('goals')">Ver objetivos</button>`:m.type.startsWith("finance")||m.type==="emergency"?`<button class="btn sm" onclick="view('finance')">Abrir finanças</button>`:"";return `<div class="mission ${ok?"done":""}"><div class="mission-icon ${m.type}">${m.icon}</div><div class="mission-info"><strong>${esc(m.title)}</strong><small>${esc(m.sub)}</small><div class="mission-progress"><i style="width:${pct}%"></i></div><div class="mission-actions"><small>${label}</small>${!ok?action:"<small>✓ Concluída</small>"}</div></div><div class="mission-reward" title="Recompensa">${ok?"✓":"🎁"}</div></div>`}).join("");
-  document.getElementById("missionsDone").textContent=done+"/"+ms.length;document.getElementById("dailyXp").textContent=totalXp;
+  document.getElementById("missionsDone").textContent=done+"/"+ms.length;document.getElementById("dailyXp").textContent=totalXp;const rule=document.getElementById("offensiveRuleText");if(rule)rule.textContent=isOffensiveDay(ds)?`🔥 Ofensiva ativa · ${done}/${ms.length} missões concluídas.`:`🔥 Ofensiva inativa · completa pelo menos 2 de ${ms.length} missões.`;
 }
 function renderGamificationOverview(){
   const xp=Number(s.gamification.xp)||0,info=getLevelInfo(xp),league=getLeague(xp),oldLeague=s.gamification.lastLeague||league.name,oldLevel=Number(s.gamification.lastLevel)||1;
