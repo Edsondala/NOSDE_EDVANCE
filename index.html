@@ -1038,7 +1038,17 @@ function completedMissionCount(ds=today()){return ensureDailyMissions(ds).filter
 function isOffensiveDay(ds=today()){return completedMissionCount(ds)>=2}
 function monthCompletedDays(mk=monthKey()){
   const hist=s.gamification.missionHistory||{};
-  return Object.keys(hist).filter(k=>k.slice(0,7)===mk&&hist[k]?._dayComplete===true).length;
+  /*
+   * Um dia válido para as Medalhas do Mês é um dia de Ofensiva:
+   * pelo menos 2 das 3 missões concluídas.
+   *
+   * _offensiveActive é gravado quando a regra das 2/3 é atingida.
+   * Mantemos _dayComplete apenas como compatibilidade para estados antigos.
+   */
+  return Object.keys(hist).filter(k=>
+    k.slice(0,7)===mk &&
+    (hist[k]?._offensiveActive===true || hist[k]?._dayComplete===true)
+  ).length;
 }
 function freezeClosedMonthlyMedals(){
   s.gamification.monthlyAwards=s.gamification.monthlyAwards||{};
@@ -1144,7 +1154,7 @@ function renderGamificationOverview(){
 }
 function renderMonthlyMedals(){
   const mk=monthKey(),st=medalState(mk),days=st.days;localStorage.setItem(KEY,JSON.stringify(s));nosdeScheduleSync();document.getElementById("medalsMonth").textContent=monthName(today());
-  document.getElementById("monthlyMedals").innerHTML=Object.values(st.medals).map(m=>{const pct=Math.min(100,(days/m.target)*100);return `<div class="medal-card ${m.unlocked?"unlocked":""}"><div class="medal-top"><div class="medal-icon">${m.icon}</div><div><div class="medal-name">${m.name}</div><div class="medal-criterion">${m.target} dias completos</div></div></div><div class="medal-progress"><i style="width:${pct}%"></i></div><div class="medal-foot"><span>${Math.min(days,m.target)} / ${m.target} dias</span><strong>${m.unlocked?"✓ Desbloqueada":"Bloqueada"}</strong></div></div>`}).join("");
+  document.getElementById("monthlyMedals").innerHTML=Object.values(st.medals).map(m=>{const pct=Math.min(100,(days/m.target)*100);return `<div class="medal-card ${m.unlocked?"unlocked":""}"><div class="medal-top"><div class="medal-icon">${m.icon}</div><div><div class="medal-name">${m.name}</div><div class="medal-criterion">${m.target} dias de ofensiva</div></div></div><div class="medal-progress"><i style="width:${pct}%"></i></div><div class="medal-foot"><span>${Math.min(days,m.target)} / ${m.target} dias de ofensiva</span><strong>${m.unlocked?"✓ Desbloqueada":"Bloqueada"}</strong></div></div>`}).join("");
   st.newly.forEach(m=>notifyGamification("🏅 Nova medalha desbloqueada",m.name));
 }
 function notifyGamification(title,sub){let box=document.getElementById("gamToast");if(!box){box=document.createElement("div");box.id="gamToast";box.className="gam-toast";document.body.appendChild(box)}box.innerHTML=esc(title)+`<b>${esc(sub)}</b>`;box.classList.add("show");clearTimeout(window.__gamToastTimer);window.__gamToastTimer=setTimeout(()=>box.classList.remove("show"),2200)}
