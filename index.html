@@ -862,33 +862,24 @@ function createAction(){
  s.actions.push({id:uid(),title,date:start,time,done:false,archived:false,occurrence:1,recurrence:repeat,recurrenceGroup:groupId,repeatUntil:recurring?repeatUntil:null});
  closeModal();save();toast(recurring?"Ação criada. A próxima ocorrência surgirá após cada dia encerrado enquanto a repetição estiver ativa.":"Ação criada.")
 }
-function ensureRecurringOccurrencesThrough(a,targetDate){
+function ensureRecurringNextOccurrence(a){
  if(!a.recurrence||a.recurrence==="none"||!a.repeatUntil)return false;
  let changed=false,next=nextRecurringDate(a.date,a.recurrence),occ=Number(a.occurrence||1)+1,guard=0;
- while(next&&next<=targetDate&&next<a.repeatUntil&&guard<500){
+ while(next&&next<a.repeatUntil&&guard<500){
    const exists=s.actions.some(x=>x.recurrenceGroup===a.recurrenceGroup&&x.date===next);
-   if(!exists){
-     const missed=next<today();
-     s.actions.push({id:uid(),title:a.title,date:next,time:a.time||"08:00",done:false,archived:missed,occurrence:occ,recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,repeatUntil:a.repeatUntil,outcome:missed?"missed":null,archivedAt:missed?Date.now():null});
-     changed=true;
-   }
+   if(!exists){s.actions.push({id:uid(),title:a.title,date:next,time:a.time||"08:00",done:false,archived:false,occurrence:occ,recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,repeatUntil:a.repeatUntil});changed=true;break}
    next=nextRecurringDate(next,a.recurrence);occ++;guard++;
  }
  return changed;
 }
-function ensureRecurringCatchUp(){
- const t=today();let changed=false;
- // Garante que uma repetição não perde dias só porque o utilizador não abriu o site.
- const recurring=[...s.actions].filter(a=>a.recurrence&&a.recurrence!=="none"&&!a.archived&&a.repeatUntil);
- recurring.forEach(a=>{if(ensureRecurringOccurrencesThrough(a,t))changed=true});
- return changed;
-}
 function archivePastActions(){
- const t=today();let changed=ensureRecurringCatchUp();
+ const t=today();let changed=false;
+ // Cada ocorrência representa apenas um dia. Ao terminar esse dia, ela é
+ // definitivamente avaliada e, se houver repetição, nasce a próxima ocorrência.
  const past=[...s.actions].filter(a=>a.date<t&&!a.archived).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
  past.forEach(a=>{
    a.archived=true;a.outcome=a.done?"completed":"missed";a.archivedAt=Date.now();changed=true;
-   if(a.recurrence&&a.recurrence!=="none"&&a.repeatUntil&&ensureRecurringOccurrencesThrough(a,t))changed=true;
+   if(ensureRecurringNextOccurrence(a))changed=true;
  });
  if(changed){localStorage.setItem(KEY,JSON.stringify(s));if(typeof nosdeScheduleSync==="function")nosdeScheduleSync()}
  return changed;
@@ -1145,7 +1136,7 @@ function weeklyPDCARender(){
   const projectMinutes=projects.reduce((sum,p)=>
     sum+(p.workLog||[]).filter(x=>inRange(x.date)).reduce((a,x)=>a+Number(x.minutes||0),0),0);
   const projectChanges=projects.reduce((sum,p)=>
-    sum+(p.alterations||[]).filter(x=>{const d=x.date||(x.at?String(x.at).slice(0,10):'');return inRange(d)}).length,0);
+    sum+(p.alterations||[]).filter(x=>x.date?inRange(x.date):false).length,0);
   const completedProjects=projects.filter(p=>p.status==="done");
   const projectAccuracy=completedProjects.length?
     completedProjects.reduce((sum,p)=>sum+projectAccuracySafe(p),0)/completedProjects.length:null;
@@ -1494,12 +1485,6 @@ function renderRiskDescription(){
   }[risk];
   const el=document.getElementById("riskDescription"); if(el) el.innerHTML="<b>"+esc(risk)+"</b><br>"+esc(desc);
 }
-function switchProfileTab(tab){
-  document.querySelectorAll('[data-profile-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.profileTab===tab));
-  document.getElementById('profilePersonal')?.classList.toggle('active',tab==='personal');
-  document.getElementById('profileFinancial')?.classList.toggle('active',tab==='financial');
-}
-
 function saveProfile(){
   s.profile=s.profile||{};
   s.profile.name=document.getElementById("profileName")?.value.trim()||"";
@@ -1771,25 +1756,141 @@ function emergencyAdds(month=currentMonthFinance()){return fin.emergencyFund.con
 function emergencyDebits(month=currentMonthFinance()){return fin.emergencyFund.contributions.filter(x=>monthKeyFromDate(x.date)===month&&x.kind==="debit").reduce((a,x)=>a+Number(x.amount||0),0)}
 function investmentAdds(month=currentMonthFinance()){return fin.investmentMoves.filter(x=>monthKeyFromDate(x.date)===month&&x.kind==="add").reduce((a,x)=>a+Number(x.amount||0),0)}
 function investmentDebits(month=currentMonthFinance()){return fin.investmentMoves.filter(x=>monthKeyFromDate(x.date)===month&&x.kind==="debit").reduce((a,x)=>a+Number(x.amount||0),0)}
+function financePreviousMonth(month){
+  const [y,m]=String(month).split("-").map(Number);
+  const d=new Date(y,m-2,1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+}
+function financeFirstRecordedMonth(){
+  const months=[];
+  Object.keys(fin.monthlyIncome||{}).forEach(m=>/^\d{4}-\d{2}$/.test(m)&&months.push(m));
+  (fin.budgets||[]).forEach(b=>b?.month&&/^\d{4}-\d{2}$/.test(b.month)&&months.push(b.month));
+  (fin.moves||[]).forEach(x=>{const m=monthKeyFromDate(x.date);if(/^\d{4}-\d{2}$/.test(m))months.push(m)});
+  (fin.goalMoves||[]).forEach(x=>{const m=monthKeyFromDate(x.date);if(/^\d{4}-\d{2}$/.test(m))months.push(m)});
+  (fin.investmentMoves||[]).forEach(x=>{const m=monthKeyFromDate(x.date);if(/^\d{4}-\d{2}$/.test(m))months.push(m)});
+  (fin.emergencyFund?.contributions||[]).forEach(x=>{const m=monthKeyFromDate(x.date);if(/^\d{4}-\d{2}$/.test(m))months.push(m)});
+  return months.length?[...new Set(months)].sort()[0]:currentMonthFinance();
+}
+function financeMonthFlow(month,cache={},stack={}){
+  month=String(month||currentMonthFinance());
+  if(cache[month])return cache[month];
+  if(stack[month])return {month,openingBudgeted:0,openingUnbudgeted:0,openingCarry:0,income:0,expense:0,budget:0,budgetedSpent:0,unbudgetedSpent:0,closingBudgeted:0,closingUnbudgeted:0,closingCarry:0,availableBeforeBudget:0,availableForSaving:0};
+  stack[month]=true;
+
+  const first=financeFirstRecordedMonth();
+  const prev=financePreviousMonth(month);
+  let openingBudgeted=0,openingUnbudgeted=0;
+
+  if(month===first){
+    openingUnbudgeted=Math.max(0,Number(fin.profile?.cash)||0);
+  }else{
+    const p=financeMonthFlow(prev,cache,stack);
+    openingBudgeted=Math.max(0,Number(p.closingBudgeted)||0);
+    openingUnbudgeted=Math.max(0,Number(p.closingUnbudgeted)||0);
+  }
+
+  const income=monthlyIncomeValue(month);
+  const eAdd=emergencyAdds(month),eDebit=emergencyDebits(month);
+  const gAdd=goalAdds(month),gDebit=goalDebits(month);
+  const iAdd=investmentAdds(month),iDebit=investmentDebits(month);
+
+  const availableBeforeBudget=Math.max(
+    0,
+    openingBudgeted+
+    openingUnbudgeted+
+    income-
+    eAdd+eDebit-
+    gAdd+gDebit-
+    iAdd+iDebit
+  );
+
+  const budget=Math.min(
+    Math.max(0,budgetTotal(month)),
+    availableBeforeBudget
+  );
+
+  const unbudgeted=Math.max(0,availableBeforeBudget-budget);
+
+  const expense=totalExpenses(month);
+
+  /*
+   * Despesas consomem primeiro o dinheiro que foi reservado
+   * no orçamento. Só o excedente consome o saldo não orçamentado.
+   */
+  const budgetedSpent=Math.min(expense,budget);
+  const unbudgetedSpent=Math.max(0,expense-budgetedSpent);
+
+  const closingBudgeted=Math.max(0,budget-budgetedSpent);
+  const closingUnbudgeted=Math.max(0,unbudgeted-unbudgetedSpent);
+  const closingCarry=closingBudgeted+closingUnbudgeted;
+
+  const result={
+    month,
+    openingBudgeted,
+    openingUnbudgeted,
+    openingCarry:openingBudgeted+openingUnbudgeted,
+    income,
+    expense,
+    emergencyAdded:eAdd,
+    emergencyDebited:eDebit,
+    emergencyNet:eAdd-eDebit,
+    savingsAdded:gAdd,
+    savingsDebited:gDebit,
+    goalNet:gAdd-gDebit,
+    investmentAdded:iAdd,
+    investmentDebited:iDebit,
+    investmentNet:iAdd-iDebit,
+    availableBeforeBudget,
+    budget,
+    unbudgeted,
+    budgetedSpent,
+    unbudgetedSpent,
+    closingBudgeted,
+    closingUnbudgeted,
+    closingCarry,
+    availableForSaving:closingCarry,
+    cash:closingCarry
+  };
+
+  cache[month]=result;
+  delete stack[month];
+  return result;
+}
 function financeTotals(month=currentMonthFinance()){
-  const income=monthlyIncomeValue(month),expense=totalExpenses(month),eAdd=emergencyAdds(month),eDebit=emergencyDebits(month),gAdd=goalAdds(month),gDebit=goalDebits(month),iAdd=investmentAdds(month),iDebit=investmentDebits(month);
-  const reserved=Math.max(0,eAdd-eDebit+gAdd-gDebit+iAdd-iDebit);
-  const openingCash=Math.max(0,Number(fin.profile.cash)||0);
-  // Receitas extra ficam disponíveis para gastar/poupar. A contribuição do Fundo
-  // é abatida primeiro à receita mensal e não consome automaticamente receitas extra.
-  const baseIncomeAvailable=Math.max(0,baseMonthlyIncomeValue(month)-eAdd+eDebit);
-  const extraIncomeAvailable=Math.max(0,extraIncomeForMonth(month));
-  const budgetReserved=budgetTotal(month);
-  const availableBeforeExpenses=Math.max(0,openingCash+baseIncomeAvailable+extraIncomeAvailable-gAdd-iAdd+gDebit+iDebit-budgetReserved);
-  // O orçamento é uma reserva: sai do dinheiro livre, mas não é descontado uma segunda vez quando uma despesa acontece.
-  const availableForSaving=Math.max(0,availableBeforeExpenses);
-  const cash=Math.max(0,availableBeforeExpenses);
+  const flow=financeMonthFlow(month,{},{});
   const emergencyTotal=fin.emergencyFund.contributions.reduce((a,x)=>a+(x.kind==="debit"?-1:1)*Number(x.amount||0),0);
   const goalTotal=fin.goals.reduce((a,g)=>a+Number(g.current||0),0);
   const invest=fin.investments.reduce((a,x)=>a+Number(x.current||0),0);
-  const saving=income>0?Math.max(0,Math.min(100,(eAdd+gAdd+iAdd)/income*100)):0;
-  const net=cash+emergencyTotal+goalTotal+invest;
-  return {income,expense,emergencyAdded:eAdd,emergencyDebited:eDebit,emergencyTotal,goalTotal,savingsAdded:gAdd,savingsDebited:gDebit,investmentAdded:iAdd,investmentDebited:iDebit,budgetReserved,reserved,availableBeforeExpenses,availableForSaving,cash,invest,saving,net,recordedIncome:income,incomeBase:0};
+  const income=flow.income,expense=flow.expense;
+  const saving=income>0?Math.max(0,Math.min(100,(flow.emergencyNet+flow.goalNet+flow.investmentNet)/income*100)):0;
+  const net=flow.closingCarry+emergencyTotal+goalTotal+invest;
+  return {
+    income,expense,
+    emergencyAdded:flow.emergencyAdded,
+    emergencyDebited:flow.emergencyDebited,
+    emergencyTotal,
+    goalTotal,
+    savingsAdded:flow.savingsAdded,
+    savingsDebited:flow.savingsDebited,
+    investmentAdded:flow.investmentAdded,
+    investmentDebited:flow.investmentDebited,
+    budgetReserved:flow.budget,
+    reserved:flow.emergencyNet+flow.goalNet+flow.investmentNet,
+    availableBeforeExpenses:flow.availableBeforeBudget,
+    availableForSaving:flow.availableForSaving,
+    cash:flow.cash,
+    invest,saving,net,
+    recordedIncome:income,
+    incomeBase:baseMonthlyIncomeValue(month),
+    openingBudgeted:flow.openingBudgeted,
+    openingUnbudgeted:flow.openingUnbudgeted,
+    openingCarry:flow.openingCarry,
+    budgetedSpent:flow.budgetedSpent,
+    unbudgetedSpent:flow.unbudgetedSpent,
+    closingBudgeted:flow.closingBudgeted,
+    closingUnbudgeted:flow.closingUnbudgeted,
+    closingCarry:flow.closingCarry
+  };
 }
 function saveFinance(){localStorage.setItem(FINKEY,JSON.stringify(fin));renderFinance();renderDailyMissions?.();renderStreak?.();nosdeScheduleSync()}
 function monthlyRevenueRegistered(month=currentMonthFinance()){return !!(fin.monthlyIncome[month]?.registered)}
@@ -1886,7 +1987,20 @@ function renderFinanceMonthControl(t){
   const extras=monthMovesFinance().filter(x=>x.kind==="income").sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const show=v=>financeMonthVisible?money(v):financeHiddenMoney();
   const show2=v=>financeMonthVisible?money2(v):financeHiddenMoney2();
-  el.innerHTML=`<div class="finance-budget-grid"><div class="finance-budget-card"><small>Receita mensal</small><b>${show(baseMonthlyIncomeValue())}</b></div><div class="finance-budget-card"><small>Outras receitas</small><b>${show(extra)}</b></div><div class="finance-budget-card"><small>Fundo de Emergência</small><b>${show(t.emergencyAdded)}</b></div><div class="finance-budget-card"><small>Orçamento reservado</small><b>${show(t.budgetReserved)}</b></div><div class="finance-budget-card"><small>Disponível para gastar / poupar</small><b>${show(t.availableForSaving)}</b></div></div>${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${show2(x.amount)}</b></div>`).join("")}</div>`:""}<div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`
+  el.innerHTML=`<div class="finance-budget-grid">
+    <div class="finance-budget-card"><small>Saldo transportado</small><b>${show(t.openingCarry)}</b></div>
+    <div class="finance-budget-card"><small>Orçamentado transportado</small><b>${show(t.openingBudgeted)}</b></div>
+    <div class="finance-budget-card"><small>Não orçamentado transportado</small><b>${show(t.openingUnbudgeted)}</b></div>
+    <div class="finance-budget-card"><small>Receita mensal</small><b>${show(baseMonthlyIncomeValue())}</b></div>
+    <div class="finance-budget-card"><small>Outras receitas</small><b>${show(extra)}</b></div>
+    <div class="finance-budget-card"><small>Orçamento reservado</small><b>${show(t.budgetReserved)}</b></div>
+    <div class="finance-budget-card"><small>Saldo final orçamentado</small><b>${show(t.closingBudgeted)}</b></div>
+    <div class="finance-budget-card"><small>Saldo final não orçamentado</small><b>${show(t.closingUnbudgeted)}</b></div>
+    <div class="finance-budget-card"><small>Saldo a transportar</small><b>${show(t.closingCarry)}</b></div>
+  </div>
+  ${extras.length?`<div class="emergency-history" style="margin-top:12px">${extras.map(x=>`<div class="finance-item"><span>${esc(x.name||"Outra receita")} <small style="color:var(--muted)">· ${fullDateFinance(x.date)}</small></span><b class="positive">＋ ${show2(x.amount)}</b></div>`).join("")}</div>`:""}
+  <div class="checkpoint-box" style="margin-top:12px"><b>Saldo transportado automaticamente</b><div style="color:var(--muted);font-size:10px;margin-top:5px">O saldo final deste mês passa para o mês seguinte, separado entre orçamentado e não orçamentado.</div></div>
+  <div class="actions" style="margin-top:12px"><button class="btn sm" onclick="financeExtraRevenueModal()">＋ Adicionar outra receita</button></div>`;
 }
 function renderEmergencyFund(t){
   const el=document.getElementById("emergencyFundSection");if(!el)return;
@@ -2073,7 +2187,7 @@ function projectSwitchTab(i,t){projectDetailTab=t;projectOpenProject(i,t)}
 function projectAddStep(i){let el=document.getElementById('newStep'),v=el.value.trim();if(!v)return;projectState.projects[i].checklist.push({text:v,done:false});el.value='';projectSave();projectOpenProject(i,'checklist')}
 function projectToggleStep(i,j){const item=projectState.projects[i].checklist[j];item.done=!item.done;item.completedAt=item.done?new Date().toISOString():null;projectState.projects[i].lastActivityAt=new Date().toISOString();projectSave();projectOpenProject(i,'checklist')}
 function projectDeleteStep(i,j){projectState.projects[i].checklist.splice(j,1);projectSave();projectOpenProject(i,'checklist')}
-function projectAddAlteration(i){let d=document.getElementById('altText').value.trim(),m=+document.getElementById('altMin').value,t=document.getElementById('altType').value;if(!d||!m)return alert('Indica a alteração e o tempo gasto.');const now=new Date();projectState.projects[i].alterations.push({description:d,minutes:m,type:t,date:dateKey(now),at:now.toISOString()});projectState.projects[i].lastActivityAt=now.toISOString();projectSave();projectOpenProject(i,'history')}
+function projectAddAlteration(i){let d=document.getElementById('altText').value.trim(),m=+document.getElementById('altMin').value,t=document.getElementById('altType').value;if(!d||!m)return alert('Indica a alteração e o tempo gasto.');projectState.projects[i].alterations.push({description:d,minutes:m,type:t,at:new Date().toISOString()});projectSave();projectOpenProject(i,'history')}
 function projectRemoveAlteration(i,j){projectState.projects[i].alterations.splice(j,1);projectSave();projectOpenProject(i,'history')}
 
 function projectSaveDetails(i){
