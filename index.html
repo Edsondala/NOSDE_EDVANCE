@@ -439,7 +439,7 @@ input,textarea,select{background:var(--bg);border:1px solid var(--line);color:va
 
 <section id="goals" class="page"><div class="top"><div><h1>Objetivos</h1><p>Transforma intenções em resultados mensuráveis.</p></div><button class="btn primary" onclick="openGoalModal()">＋ Novo objetivo</button></div><div id="goalsList" class="goals"></div></section>
 
-<section id="stats" class="page"><div class="top"><div><h1>Estatísticas</h1><p>Vê o teu progresso e a tua consistência.</p></div></div><div class="kpis"><div class="kpi"><small>🔥 Dias seguidos</small><strong id="statStreak">0</strong></div><div class="kpi"><small>⚡ Total de XP</small><strong id="statXp">0</strong></div><div class="kpi"><small>💠 Divisão</small><strong id="statLeague">Ascensão</strong></div><div class="kpi"><small>🏅 Pódios</small><strong id="statMedals">0</strong></div></div><div class="kpis" style="margin-top:10px"><div class="kpi"><small>Ações concluídas</small><strong id="statDone">0</strong></div><div class="kpi"><small>Ações não concluídas</small><strong id="statMissed">0</strong></div><div class="kpi"><small>Ações avaliadas</small><strong id="statTotal">0</strong></div><div class="kpi"><small>Objetivos</small><strong id="statGoals">0</strong></div><div class="kpi"><small>Notas</small><strong id="statNotes">0</strong></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>📚 Histórico de ações</h2><span class="budget-status">Concluídas e não concluídas</span></div><div id="actionHistoryStats" class="list"></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>🎯 Histórico de objetivos</h2><span class="budget-status">Concluídos e encerrados</span></div><div id="goalHistoryStats" class="list"></div></div></section>
+<section id="stats" class="page"><div class="top"><div><h1>Estatísticas</h1><p>Vê o teu progresso e a tua consistência.</p></div></div><div class="kpis"><div class="kpi"><small>🔥 Dias seguidos</small><strong id="statStreak">0</strong></div><div class="kpi"><small>⚡ Total de XP</small><strong id="statXp">0</strong></div><div class="kpi"><small>💠 Divisão</small><strong id="statLeague">Ascensão</strong></div><div class="kpi"><small>🏅 Pódios</small><strong id="statMedals">0</strong></div></div><div class="kpis" style="margin-top:10px"><div class="kpi"><small>Ações concluídas</small><strong id="statDone">0</strong></div><div class="kpi"><small>Ações não concluídas</small><strong id="statMissed">0</strong></div><div class="kpi"><small>Ações avaliadas</small><strong id="statTotal">0</strong></div><div class="kpi"><small>Objetivos</small><strong id="statGoals">0</strong></div><div class="kpi"><small>Notas</small><strong id="statNotes">0</strong></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>📚 Histórico de ações</h2><span class="budget-status">Concluídas e não concluídas</span></div><div id="actionHistoryStats" class="list"></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>🎯 Histórico de objetivos</h2><span class="budget-status">Concluídos e encerrados</span></div><div id="goalHistoryStats" class="list"></div></div><div class="panel" style="margin-top:14px"><div class="panel-head"><h2>🏅 Histórico de medalhas</h2><span class="budget-status">Meses encerrados</span></div><div id="medalHistoryStats" class="list"></div></div></section>
 
 <section id="profile" class="page">
   <div class="top">
@@ -863,27 +863,52 @@ function createAction(){
  closeModal();save();toast(recurring?"Ação criada. A próxima ocorrência surgirá após cada dia encerrado enquanto a repetição estiver ativa.":"Ação criada.")
 }
 function ensureRecurringNextOccurrence(a){
- if(!a.recurrence||a.recurrence==="none"||!a.repeatUntil)return false;
- let changed=false,next=nextRecurringDate(a.date,a.recurrence),occ=Number(a.occurrence||1)+1,guard=0;
- while(next&&next<a.repeatUntil&&guard<500){
-   const exists=s.actions.some(x=>x.recurrenceGroup===a.recurrenceGroup&&x.date===next);
-   if(!exists){s.actions.push({id:uid(),title:a.title,date:next,time:a.time||"08:00",done:false,archived:false,occurrence:occ,recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,repeatUntil:a.repeatUntil});changed=true;break}
-   next=nextRecurringDate(next,a.recurrence);occ++;guard++;
- }
- return changed;
+  if(!a.recurrence||a.recurrence==="none"||!a.repeatUntil)return false;
+  let changed=false,next=nextRecurringDate(a.date,a.recurrence);
+  let occurrence=Number(a.occurrence||1)+1,guard=0,limit=today();
+
+  while(next&&next<a.repeatUntil&&next<=limit&&guard<500){
+    const exists=s.actions.some(x=>x.recurrenceGroup===a.recurrenceGroup&&x.date===next);
+    if(!exists){
+      s.actions.push({
+        id:uid(),title:a.title,date:next,time:a.time||"08:00",
+        done:false,archived:false,occurrence,
+        recurrence:a.recurrence,recurrenceGroup:a.recurrenceGroup,
+        repeatUntil:a.repeatUntil
+      });
+      changed=true;
+    }
+    next=nextRecurringDate(next,a.recurrence);
+    occurrence++;guard++;
+  }
+  return changed;
 }
 function archivePastActions(){
- const t=today();let changed=false;
- // Cada ocorrência representa apenas um dia. Ao terminar esse dia, ela é
- // definitivamente avaliada e, se houver repetição, nasce a próxima ocorrência.
- const past=[...s.actions].filter(a=>a.date<t&&!a.archived).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
- past.forEach(a=>{
-   a.archived=true;a.outcome=a.done?"completed":"missed";a.archivedAt=Date.now();changed=true;
-   if(ensureRecurringNextOccurrence(a))changed=true;
- });
- if(changed){localStorage.setItem(KEY,JSON.stringify(s));if(typeof nosdeScheduleSync==="function")nosdeScheduleSync()}
- return changed;
+  const t=today();let changed=false;
+
+  // Garante que todas as ocorrências que deveriam existir até hoje existem.
+  [...s.actions].filter(a=>a.recurrence&&a.recurrence!=="none"&&a.repeatUntil)
+    .forEach(a=>{if(ensureRecurringNextOccurrence(a))changed=true});
+
+  // Cada ocorrência passada é encerrada individualmente.
+  const past=[...s.actions]
+    .filter(a=>a.date<t&&!a.archived)
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+
+  past.forEach(a=>{
+    a.archived=true;
+    a.outcome=a.done?"completed":"missed";
+    a.archivedAt=a.archivedAt||Date.now();
+    changed=true;
+  });
+
+  if(changed){
+    localStorage.setItem(KEY,JSON.stringify(s));
+    if(typeof nosdeScheduleSync==="function")nosdeScheduleSync();
+  }
+  return changed;
 }
+
 function activeActions(){archivePastActions();return s.actions.filter(a=>!a.archived&&a.date===today())}
 function toggleAction(id){const a=s.actions.find(x=>x.id===id);if(a&&!a.archived){a.done=!a.done;if(a.done&&a.date===today())completeMissionRewards(today(),false);save()}}
 function deleteAction(id){s.actions=s.actions.filter(x=>x.id!==id);save()}
@@ -1015,22 +1040,64 @@ function monthCompletedDays(mk=monthKey()){
   const hist=s.gamification.missionHistory||{};
   return Object.keys(hist).filter(k=>k.slice(0,7)===mk&&hist[k]?._dayComplete===true).length;
 }
+function freezeClosedMonthlyMedals(){
+  s.gamification.monthlyAwards=s.gamification.monthlyAwards||{};
+  const current=monthKey();
+  const months=new Set(Object.keys(s.gamification.missionHistory||{}).map(k=>k.slice(0,7)));
+  months.forEach(mk=>{
+    if(mk>=current||s.gamification.monthlyAwards[mk]?.frozen)return;
+    const days=monthCompletedDays(mk);
+    s.gamification.monthlyAwards[mk]={
+      days,
+      medals:{bronze:days>=15,silver:days>=22,gold:days>=28},
+      frozen:true,
+      frozenAt:new Date().toISOString()
+    };
+  });
+}
 function medalState(mk=monthKey()){
-  const days=monthCompletedDays(mk);
+  freezeClosedMonthlyMedals();
   const defs=[
     {id:"bronze",icon:"🥉",name:"Consistente",target:15},
     {id:"silver",icon:"🥈",name:"Disciplinado",target:22},
     {id:"gold",icon:"🥇",name:"Imparável",target:28}
   ];
-  s.gamification.monthlyAwards=s.gamification.monthlyAwards||{};
-  const prev=s.gamification.monthlyAwards[mk]||{};
-  const state={days,medals:{}};
-  defs.forEach(d=>{state.medals[d.id]={...d,unlocked:days>=d.target};if(days>=d.target)state.medals[d.id].unlocked=true});
-  s.gamification.monthlyAwards[mk]={days,medals:Object.fromEntries(defs.map(d=>[d.id,days>=d.target]))};
+
+  const stored=s.gamification.monthlyAwards?.[mk];
+
+  if(mk!==monthKey()&&stored?.frozen){
+    const days=Number(stored.days)||0;
+    return {
+      days,
+      medals:Object.fromEntries(defs.map(d=>[
+        d.id,{...d,unlocked:!!stored.medals?.[d.id]}
+      ])),
+      newly:[]
+    };
+  }
+
+  const days=monthCompletedDays(mk);
+  const prev=stored||{};
+  const medals=Object.fromEntries(defs.map(d=>[
+    d.id,{...d,unlocked:days>=d.target}
+  ]));
+
+  s.gamification.monthlyAwards[mk]={
+    days,
+    medals:Object.fromEntries(defs.map(d=>[d.id,days>=d.target])),
+    frozen:false
+  };
+
   const newly=[];
-  defs.forEach(d=>{if(days>=d.target&&!prev.medals?.[d.id])newly.push(d)});
-  return {...state,newly};
+  if(mk===monthKey()){
+    defs.forEach(d=>{
+      if(days>=d.target&&!prev.medals?.[d.id])newly.push(d);
+    });
+  }
+
+  return {days,medals,newly};
 }
+
 function currentStreak(){
   let cur=0,d=new Date();
   if(!isOffensiveDay(dateKey(d)))d.setDate(d.getDate()-1);
@@ -1282,7 +1349,6 @@ function deleteGoal(id){s.goals=s.goals.filter(x=>x.id!==id);save()}
 
 function setPomo(mode){pomoRunning=false;clearInterval(pomoTimer);pomoMode=mode;pomoRemaining=s.pomo[mode]*60;["focus","short","long"].forEach(x=>document.getElementById("tab"+x[0].toUpperCase()+x.slice(1)).classList.toggle("active",x===mode));renderPomo()}
 function renderPomo(){const m=Math.floor(pomoRemaining/60),sec=pomoRemaining%60;document.getElementById("pomoTime").textContent=String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");document.getElementById("pomoLabel").textContent=pomoMode==="focus"?"Foco":pomoMode==="short"?"Pausa curta":"Pausa longa";document.getElementById("pomoSessions").textContent=s.pomoSessions;const a=document.getElementById("pomoAdjustValue");if(a)a.textContent=Math.max(1,Math.ceil(pomoRemaining/60))+" min"}
-function togglePomo(){if(pomoRunning){pomoRunning=false;clearInterval(pomoTimer);return}pomoRunning=true;pomoTimer=setInterval(()=>{pomoRemaining--;if(pomoRemaining<=0){clearInterval(pomoTimer);pomoRunning=false;if(pomoMode==="focus")s.pomoSessions++;save();toast("Sessão terminada.");setPomo(pomoMode)}renderPomo()},1000)}
 function ensurePomoAudio(){
   try{
     if(!pomoAlarmCtx) pomoAlarmCtx=new (window.AudioContext||window.webkitAudioContext)();
@@ -1484,6 +1550,17 @@ function renderRiskDescription(){
     Arrojado:"Aceita maior volatilidade para procurar crescimento potencialmente superior."
   }[risk];
   const el=document.getElementById("riskDescription"); if(el) el.innerHTML="<b>"+esc(risk)+"</b><br>"+esc(desc);
+}
+function switchProfileTab(tab){
+  const active=tab==="financial"?"financial":"personal";
+  document.querySelectorAll(".profile-tab").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.profileTab===active);
+  });
+  document.querySelectorAll(".profile-panel").forEach(panel=>{
+    const isPersonal=panel.id==="profilePersonal";
+    const isFinancial=panel.id==="profileFinancial";
+    panel.classList.toggle("active",(active==="personal"&&isPersonal)||(active==="financial"&&isFinancial));
+  });
 }
 function saveProfile(){
   s.profile=s.profile||{};
@@ -1709,10 +1786,51 @@ function setAvatarOption(field,value){const a=s.profile.avatar;if(field==="outfi
 function resetAvatar(){if(!confirm("Redefinir o avatar para o modelo inicial?"))return;s.profile.avatar={...defaults().profile.avatar};renderAvatarEditor();toast("Avatar redefinido.")}
 function saveAvatar(){s.profile.avatar={...defaults().profile.avatar,...s.profile.avatar};save();closeModal();toast("Avatar guardado.")}
 
+function renderMedalHistoryStats(){
+  const box=document.getElementById("medalHistoryStats");
+  if(!box)return;
+  freezeClosedMonthlyMedals();
+
+  const awards=s.gamification.monthlyAwards||{};
+  const months=Object.keys(awards)
+    .filter(mk=>awards[mk]?.frozen)
+    .sort((a,b)=>b.localeCompare(a))
+    .slice(0,24);
+
+  if(!months.length){
+    box.innerHTML='<div class="empty">Ainda não existem meses encerrados com medalhas registadas.</div>';
+    return;
+  }
+
+  const names={
+    bronze:"🥉 Consistente",
+    silver:"🥈 Disciplinado",
+    gold:"🥇 Imparável"
+  };
+
+  box.innerHTML=months.map(mk=>{
+    const [y,m]=mk.split("-");
+    const label=new Date(Number(y),Number(m)-1,1)
+      .toLocaleDateString("pt-PT",{month:"long",year:"numeric"});
+    const a=awards[mk];
+    const unlocked=Object.keys(names)
+      .filter(id=>a.medals?.[id])
+      .map(id=>names[id]);
+
+    return `<div class="list-row">
+      <div class="meta">
+        <strong>${esc(label)}</strong>
+        <small>${Number(a.days)||0} dias completos · ${unlocked.length?unlocked.join(" · "):"Nenhuma medalha desbloqueada"}</small>
+      </div>
+      <span class="budget-status">${unlocked.length} medalha${unlocked.length===1?"":"s"}</span>
+    </div>`;
+  }).join("");
+}
 function renderStats(){
   archivePastActions();archivePastGoals();
   const xp=Number(s.gamification.xp)||0,league=getLeague(xp),streak=currentStreak(),mk=monthKey(),med=medalState(mk),prestige=getPrestige(xp),evaluated=s.actions.filter(x=>x.archived),done=evaluated.filter(x=>x.outcome==="completed"||x.done),missed=evaluated.filter(x=>x.outcome==="missed"&&!x.done),activeGoals=s.goals.filter(g=>!g.archived),goalHist=s.goals.filter(g=>g.archived);
   document.getElementById("statStreak").textContent=streak;document.getElementById("statXp").textContent=xp.toLocaleString("pt-PT");document.getElementById("statLeague").textContent=prestige?`${league.short} · P${prestige}`:league.short;document.getElementById("statMedals").textContent=Object.values(med.medals).filter(m=>m.unlocked).length;document.getElementById("statDone").textContent=done.length;document.getElementById("statMissed").textContent=missed.length;document.getElementById("statTotal").textContent=evaluated.length;document.getElementById("statGoals").textContent=activeGoals.length;document.getElementById("statNotes").textContent=s.notes.length;
+  renderMedalHistoryStats();
   const box=document.getElementById("actionHistoryStats");if(box)box.innerHTML=[...evaluated].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,100).map(a=>`<div class="list-row"><div class="meta"><strong>${a.outcome==="completed"?"☑":"☒"} ${esc(a.title)}</strong><small>${actionDateLabel(a.date)} · ${a.outcome==="completed"?"Concluída":"Não concluída"}${a.recurrence&&a.recurrence!=="none"?" · "+({daily:"diária",weekly:"semanal",monthly:"mensal"}[a.recurrence]||""):""}</small></div><span class="budget-status">${a.outcome==="completed"?"✓":"×"}</span></div>`).join("")||`<div class="empty">Ainda não há ações encerradas.</div>`;
   const gb=document.getElementById("goalHistoryStats");if(gb)gb.innerHTML=[...goalHist].sort((a,b)=>(b.archivedAt||0)-(a.archivedAt||0)).slice(0,100).map(g=>`<div class="list-row"><div class="meta"><strong>${g.outcome==="completed"?"☑":"☒"} ${esc(g.title)}</strong><small>${g.hasDates?g.startDate+" → "+g.endDate+" · ":""}${g.outcome==="completed"?"Concluído":"Prazo encerrado sem concluir"} · ${Number(g.progress||0).toFixed(1).replace(".0","")}%</small></div><span class="budget-status">${g.outcome==="completed"?"✓":"×"}</span></div>`).join("")||`<div class="empty">Ainda não há objetivos encerrados.</div>`;
 }
@@ -1804,18 +1922,37 @@ function financeMonthFlow(month,cache={},stack={}){
     iAdd+iDebit
   );
 
-  const budget=Math.min(
-    Math.max(0,budgetTotal(month)),
-    availableBeforeBudget
+  /*
+   * O saldo orçamentado trazido do mês anterior permanece orçamentado.
+   * O orçamento definido para este mês é uma nova alocação retirada
+   * apenas do saldo que ainda está não orçamentado.
+   */
+  const requestedBudget=Math.max(0,budgetTotal(month));
+  const availableUnbudgetedBeforeNewBudget=Math.max(
+    0,
+    openingUnbudgeted+
+    income-
+    eAdd+eDebit-
+    gAdd+gDebit-
+    iAdd+iDebit
   );
 
-  const unbudgeted=Math.max(0,availableBeforeBudget-budget);
+  const newBudgetAllocation=Math.min(
+    requestedBudget,
+    availableUnbudgetedBeforeNewBudget
+  );
+
+  const budget=openingBudgeted+newBudgetAllocation;
+  const unbudgeted=Math.max(
+    0,
+    availableUnbudgetedBeforeNewBudget-newBudgetAllocation
+  );
 
   const expense=totalExpenses(month);
 
   /*
-   * Despesas consomem primeiro o dinheiro que foi reservado
-   * no orçamento. Só o excedente consome o saldo não orçamentado.
+   * Despesas consomem primeiro o saldo orçamentado acumulado.
+   * Apenas o excedente consome o saldo não orçamentado.
    */
   const budgetedSpent=Math.min(expense,budget);
   const unbudgetedSpent=Math.max(0,expense-budgetedSpent);
@@ -1914,7 +2051,7 @@ function renderFinanceGate(){
   if(reason==="income"){
     el.innerHTML=`<div class="finance-gate-card"><div class="eyebrow">CICLO ${currentMonthFinance()}</div><h2>Registre sua receita deste mês</h2><p>A receita mensal é obrigatória. Pode ser <b>0 Kz</b>. Enquanto este passo não for concluído, as outras áreas permanecem bloqueadas.</p><div class="actions"><button class="btn primary" onclick="financeIncomeModal(true)">Registrar receita</button></div></div>`;
   }else if(reason==="emergency"){
-    const income=monthlyIncomeValue();el.innerHTML=`<div class="finance-gate-card"><div class="eyebrow">FUNDO DE EMERGÊNCIA</div><h2>Defina a sua contribuição mensal</h2><p>A receita de <b>${money(income)}</b> ativa a regra mínima de <b>${money(emergencyMin())}</b> (5%). Pode guardar entre 5% e 100%.</p><div class="finance-gate-kpi"><div><small>Receita</small><b>${money(income)}</b></div><div><small>Mínimo 5%</small><b>${money(emergencyMin())}</b></div></div><div class="actions"><button class="btn primary" onclick="financeEmergencyModal(true)">Definir poupança</button></div></div>`;
+    const income=baseMonthlyIncomeValue();el.innerHTML=`<div class="finance-gate-card"><div class="eyebrow">FUNDO DE EMERGÊNCIA</div><h2>Defina a sua contribuição mensal</h2><p>A receita de <b>${money(income)}</b> ativa a regra mínima de <b>${money(emergencyMin())}</b> (5%). Pode guardar entre 5% e 100%.</p><div class="finance-gate-kpi"><div><small>Receita</small><b>${money(income)}</b></div><div><small>Mínimo 5%</small><b>${money(emergencyMin())}</b></div></div><div class="actions"><button class="btn primary" onclick="financeEmergencyModal(true)">Definir poupança</button></div></div>`;
   }else{
     el.innerHTML=`<div class="finance-gate-card"><div class="eyebrow">CHECKPOINT DIÁRIO</div><h2>${new Date().getHours()>=21?"Ainda não registou as suas despesas de hoje.":"Registe as despesas que realizou hoje."}</h2><p>O registo diário pode ser uma despesa real ou <b>Sem registro</b>. “Sem registro” não cria uma transação e não altera nenhum saldo.</p><div class="checkpoint-box"><b>Hoje · ${fullDateFinance(today())}</b><div style="color:var(--muted);font-size:10px;margin-top:5px">Estado: Pendente</div></div><div class="actions" style="margin-top:14px"><button class="btn primary" onclick="financeMovement(true)">Registrar despesa</button><button class="btn" onclick="markFinanceNoRecord()">Sem registro</button></div></div>`;
   }
@@ -1945,14 +2082,14 @@ function saveExtraRevenue(){
   closeModal();saveFinance();toast(money(amount)+" de outra receita adicionados.");
 }
 function financeEmergencyModal(force=false){
-  const income=monthlyIncomeValue(),min=income*0.05,max=income,old=fin.monthlyIncome[currentMonthFinance()]?.emergencyPercent||0;
+  const income=baseMonthlyIncomeValue(currentMonthFinance()),min=income*0.05,max=income,old=fin.monthlyIncome[currentMonthFinance()]?.emergencyPercent||0;
   const presets=[5,10,20,30,50,75,100];
   modal("Poupança / Fundo de Emergência",`<div class="form"><label>Percentagem da receita</label><select id="emergencyPercent">${presets.map(p=>`<option value="${p}" ${Number(old)===p?'selected':''}>${p}% · ${money(income*p/100)}</option>`).join("")}<option value="custom">Personalizado</option></select><label id="customEmergencyLabel" style="display:${presets.includes(Number(old))?'none':'block'}">Percentagem personalizada</label><input id="customEmergencyPercent" type="number" min="5" max="100" step="0.01" value="${presets.includes(Number(old))?'':old}" style="display:${presets.includes(Number(old))?'none':'block'}"><div class="finance-gate-kpi"><div><small>Mínimo 5%</small><b>${money(min)}</b></div><div><small>Máximo 100%</small><b>${money(max)}</b></div></div><small style="color:var(--muted)">A contribuição será transferida automaticamente para o Fundo de Emergência e retirada do disponível.</small><div class="actions"><button class="btn primary" onclick="saveEmergencyPlan()">Guardar contribuição</button></div></div>`);
   if(force)document.getElementById("modal")?.classList.add("finance-locked-modal");
   document.getElementById("emergencyPercent")?.addEventListener("change",e=>{const c=e.target.value==='custom';document.getElementById("customEmergencyLabel").style.display=c?'block':'none';document.getElementById("customEmergencyPercent").style.display=c?'block':'none'});
 }
 function saveEmergencyPlan(){
-  const income=monthlyIncomeValue(),sel=document.getElementById("emergencyPercent")?.value;let pct=sel==='custom'?Number(document.getElementById("customEmergencyPercent")?.value):Number(sel);if(!isFinite(pct)||pct<5||pct>100){alert("A contribuição deve estar entre 5% e 100%.");return}
+  const income=baseMonthlyIncomeValue(currentMonthFinance()),sel=document.getElementById("emergencyPercent")?.value;let pct=sel==='custom'?Number(document.getElementById("customEmergencyPercent")?.value):Number(sel);if(!isFinite(pct)||pct<5||pct>100){alert("A contribuição deve estar entre 5% e 100%.");return}
   const month=currentMonthFinance(),amount=income*pct/100,old=fin.monthlyIncome[month]||{};
   // Se o plano já foi alterado, substitui apenas a contribuição automática deste plano, preservando movimentos manuais antigos.
   if(old.emergencyContributionId){fin.emergencyFund.contributions=fin.emergencyFund.contributions.filter(x=>x.id!==old.emergencyContributionId)}
